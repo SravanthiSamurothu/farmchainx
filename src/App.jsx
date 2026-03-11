@@ -1,992 +1,1561 @@
-import { useState, useEffect } from "react";
 
-/* ═══════════════════════════════════════════════════════════════
-   DESIGN SYSTEM
-═══════════════════════════════════════════════════════════════ */
-const C = {
-  forest:    "#1a3a2a", pine:   "#2d5a3d", moss:   "#3d7a52",
-  fern:      "#4e9b66", sage:   "#6ab87f", mint:   "#9dd4ab",
-  mist:      "#c8ecd2", dew:    "#e8f7ed", snow:   "#f9fbfa",
-  amber:     "#d4860a", amberS: "#fef3dc",
-  sky:       "#2e7ab8", skyS:   "#deeef9",
-  rose:      "#c0392b", roseS:  "#fde8e7",
-  grape:     "#7b4fa0", grapeS: "#f0e8f8",
-  ink:       "#1c2b22", charcoal:"#2f3e35", slate:  "#5a7060",
-  fog:       "#8fa898", silver: "#c4d4c9", pearl:  "#f0f5f2",
-  white:     "#ffffff",
-};
+import { useState, useEffect, createContext, useContext } from "react";
 
-const injectAssets = () => {
-  if (!document.getElementById("fcx-fonts")) {
-    const l = document.createElement("link");
-    l.id = "fcx-fonts"; l.rel = "stylesheet";
-    l.href = "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap";
-    document.head.appendChild(l);
-  }
-  if (!document.getElementById("fcx-css")) {
-    const s = document.createElement("style"); s.id = "fcx-css";
-    s.textContent = `
-      *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-      body{font-family:'DM Sans',system-ui,sans-serif;background:${C.pearl};color:${C.ink};-webkit-font-smoothing:antialiased}
-      ::-webkit-scrollbar{width:5px;height:5px}
-      ::-webkit-scrollbar-track{background:${C.dew}}
-      ::-webkit-scrollbar-thumb{background:${C.mint};border-radius:99px}
-      input,select,button,textarea{font-family:inherit}
-      table{border-collapse:collapse;width:100%}
-      @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
-      @keyframes scaleIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
-      @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
-      @keyframes pulseGlow{0%,100%{box-shadow:0 0 0 0 rgba(78,155,102,.35)}70%{box-shadow:0 0 0 8px rgba(78,155,102,0)}}
-      .fu{animation:fadeUp .45s cubic-bezier(.22,1,.36,1) both}
-      .si{animation:scaleIn .3s cubic-bezier(.22,1,.36,1) both}
-      .d1{animation-delay:.07s}.d2{animation-delay:.14s}.d3{animation-delay:.21s}.d4{animation-delay:.28s}.d5{animation-delay:.35s}
-      .hc{transition:transform .2s ease,box-shadow .2s ease}
-      .hc:hover{transform:translateY(-2px);box-shadow:0 10px 36px rgba(26,58,42,.13)!important}
-      .hb{transition:filter .15s ease,transform .12s ease}
-      .hb:hover{filter:brightness(1.07);transform:translateY(-1px)}
-      .hb:active{filter:brightness(.96);transform:none}
-      .hr{transition:background .15s ease}
-      .hr:hover{background:${C.dew}}
-      .ni{transition:background .15s ease,color .15s ease}
-      .ifl{transition:border-color .2s ease,box-shadow .2s ease;outline:none}
-      .ifl:focus{border-color:${C.fern}!important;box-shadow:0 0 0 3px rgba(78,155,102,.14)}
-    `;
-    document.head.appendChild(s);
-  }
-};
-
-/* ═══════════════════════════════════════════════════════════════
-   BASE COMPONENTS
-═══════════════════════════════════════════════════════════════ */
-function Card({ children, style, cls = "", onClick }) {
-  return (
-    <div onClick={onClick} className={`hc ${cls}`} style={{
-      background: C.white, borderRadius: 16,
-      boxShadow: "0 2px 14px rgba(26,58,42,.07)",
-      border: `1px solid ${C.mist}`, overflow: "hidden", ...style,
-    }}>{children}</div>
-  );
+// ─── Router (hash-based for portability) ───────────────────────────────────
+function useRouter() {
+  const [path, setPath] = useState(() => window.location.hash.replace("#", "") || "/");
+  useEffect(() => {
+    const handler = () => setPath(window.location.hash.replace("#", "") || "/");
+    window.addEventListener("hashchange", handler);
+    return () => window.removeEventListener("hashchange", handler);
+  }, []);
+  const navigate = (to) => { window.location.hash = to; };
+  return { path, navigate };
 }
 
-function Btn({ children, v = "primary", sz = "md", icon, onClick, style, disabled }) {
-  const sizes = { xs:"5px 11px", sm:"7px 16px", md:"10px 20px", lg:"13px 26px" };
-  const fSize = { xs:11, sm:13, md:14, lg:15 };
-  const variants = {
-    primary: { background:`linear-gradient(135deg,${C.moss},${C.fern})`, color:C.white, border:"none", boxShadow:`0 4px 14px rgba(61,122,82,.3)` },
-    secondary: { background:C.dew, color:C.pine, border:`1.5px solid ${C.mist}` },
-    ghost: { background:"transparent", color:C.moss, border:`1.5px solid ${C.mist}` },
-    danger: { background:C.roseS, color:C.rose, border:`1.5px solid #f0b8b5` },
-    dark: { background:C.forest, color:C.white, border:"none", boxShadow:`0 4px 14px rgba(26,58,42,.28)` },
-    white: { background:C.white, color:C.pine, border:`1.5px solid ${C.mist}` },
-  };
+function Link({ to, children, className = "", style = {} }) {
   return (
-    <button onClick={onClick} disabled={disabled} className="hb" style={{
-      display:"inline-flex", alignItems:"center", gap:6,
-      padding:sizes[sz], fontSize:fSize[sz], fontWeight:600,
-      borderRadius:10, cursor: disabled?"not-allowed":"pointer",
-      opacity:disabled?.6:1, letterSpacing:"-.01em", whiteSpace:"nowrap",
-      ...variants[v], ...style,
-    }}>
-      {icon && <span style={{fontSize:fSize[sz]+1,lineHeight:1}}>{icon}</span>}
+    <a href={`#${to}`} className={className} style={style} onClick={e => { e.preventDefault(); window.location.hash = to; }}>
       {children}
-    </button>
+    </a>
   );
 }
 
-function Badge({ status }) {
-  const map = {
-    Harvested:   {bg:C.dew,    fg:C.pine,    dot:C.fern},
-    "In Transit":{bg:C.amberS, fg:"#7a4800", dot:C.amber},
-    Processing:  {bg:C.grapeS, fg:"#4a1e80", dot:C.grape},
-    Stored:      {bg:C.skyS,   fg:"#164880", dot:C.sky},
-    Delivered:   {bg:"#e6f4e6",fg:C.pine,    dot:C.moss},
-    Active:      {bg:C.dew,    fg:C.pine,    dot:C.sage},
-    Inactive:    {bg:C.roseS,  fg:C.rose,    dot:C.rose},
-    Pending:     {bg:C.amberS, fg:"#7a4800", dot:C.amber},
-    Premium:     {bg:C.amberS, fg:"#7a4800", dot:C.amber},
-    Standard:    {bg:C.skyS,   fg:"#164880", dot:C.sky},
-  };
-  const s = map[status] || map.Active;
-  return (
-    <span style={{
-      display:"inline-flex", alignItems:"center", gap:5,
-      padding:"3px 10px", borderRadius:20, fontSize:12, fontWeight:600,
-      background:s.bg, color:s.fg,
-    }}>
-      <span style={{width:6,height:6,borderRadius:"50%",background:s.dot,flexShrink:0}}/>
-      {status}
-    </span>
-  );
-}
+// ─── Auth Context ────────────────────────────────────────────────────────────
+const AuthCtx = createContext(null);
+function useAuth() { return useContext(AuthCtx); }
 
-function Field({ label, type="text", placeholder, value, onChange, icon }) {
-  return (
-    <div style={{display:"flex",flexDirection:"column",gap:5}}>
-      {label && <label style={{fontSize:13,fontWeight:600,color:C.charcoal}}>{label}</label>}
-      <div style={{position:"relative"}}>
-        {icon && <span style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",fontSize:15,color:C.fog,pointerEvents:"none"}}>{icon}</span>}
-        <input type={type} placeholder={placeholder} value={value} onChange={onChange}
-          className="ifl" style={{
-            width:"100%", padding:icon?"10px 14px 10px 38px":"10px 14px",
-            border:`1.5px solid ${C.silver}`, borderRadius:10,
-            fontSize:14, color:C.ink, background:C.snow,
-          }}/>
-      </div>
-    </div>
-  );
-}
+// ─── Cart Context ────────────────────────────────────────────────────────────
+const CartCtx = createContext(null);
+function useCart() { return useContext(CartCtx); }
 
-function Sel({ label, value, onChange, opts }) {
-  return (
-    <div style={{display:"flex",flexDirection:"column",gap:5}}>
-      {label && <label style={{fontSize:13,fontWeight:600,color:C.charcoal}}>{label}</label>}
-      <select value={value} onChange={onChange} className="ifl" style={{
-        padding:"10px 36px 10px 14px", border:`1.5px solid ${C.silver}`,
-        borderRadius:10, fontSize:14, color:C.ink, background:C.snow,
-        appearance:"none",
-        backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235a7060' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E")`,
-        backgroundRepeat:"no-repeat", backgroundPosition:"right 14px center", cursor:"pointer",
-      }}>
-        {opts.map(o => <option key={o}>{o}</option>)}
-      </select>
-    </div>
-  );
-}
+// ─── Design Tokens ──────────────────────────────────────────────────────────
+const CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
 
-function StatCard({ icon, label, value, chg, color=C.fern, cls="" }) {
-  const pos = chg > 0;
-  return (
-    <Card cls={`fu ${cls}`} style={{padding:22}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
-        <div style={{
-          width:46,height:46,borderRadius:12,
-          background:`linear-gradient(135deg,${color}22,${color}10)`,
-          border:`1.5px solid ${color}28`,
-          display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,
-        }}>{icon}</div>
-        {chg !== undefined && (
-          <span style={{fontSize:12,fontWeight:600,color:pos?C.moss:C.rose,background:pos?C.dew:C.roseS,padding:"3px 8px",borderRadius:20}}>
-            {pos?"↑":"↓"} {Math.abs(chg)}%
-          </span>
-        )}
-      </div>
-      <div style={{fontSize:28,fontWeight:700,color:C.ink,letterSpacing:"-1px",lineHeight:1}}>{value}</div>
-      <div style={{fontSize:13,color:C.slate,marginTop:5}}>{label}</div>
-    </Card>
-  );
-}
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-function TopBar({ title, sub, actions }) {
-  return (
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:28,flexWrap:"wrap",gap:12}}>
-      <div>
-        <h1 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:30,fontWeight:600,color:C.ink,letterSpacing:"-.04em",lineHeight:1.1}}>{title}</h1>
-        {sub && <p style={{fontSize:13,color:C.slate,marginTop:4}}>{sub}</p>}
-      </div>
-      {actions && <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{actions}</div>}
-    </div>
-  );
-}
+  :root {
+    --forest: #1a3a2a;
+    --pine: #2d5a3d;
+    --sage: #4a8c5c;
+    --mint: #6dbb7a;
+    --lime: #a8d5a2;
+    --cream: #f5f0e8;
+    --sand: #e8dcc8;
+    --bark: #8b6914;
+    --gold: #d4a017;
+    --amber: #f0c040;
+    --white: #ffffff;
+    --ink: #1a1f16;
+    --muted: #5a6b5a;
+    --border: #d0e0d0;
+    --card: #ffffff;
+    --bg: #f0f5f0;
+    --sidebar-w: 240px;
+    --topbar-h: 64px;
+    --radius: 12px;
+    --shadow: 0 2px 16px rgba(26,58,42,0.10);
+    --shadow-lg: 0 8px 40px rgba(26,58,42,0.15);
+  }
 
-function Table({ cols, rows, onRow }) {
-  return (
-    <div style={{overflowX:"auto"}}>
-      <table>
-        <thead>
-          <tr style={{borderBottom:`2px solid ${C.dew}`}}>
-            {cols.map(c => (
-              <th key={c.k||c.l} style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:700,color:C.fog,letterSpacing:".06em",textTransform:"uppercase",whiteSpace:"nowrap"}}>{c.l}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row,i) => (
-            <tr key={i} className="hr" onClick={() => onRow&&onRow(row)} style={{borderBottom:`1px solid ${C.pearl}`,cursor:onRow?"pointer":"default"}}>
-              {cols.map(c => (
-                <td key={c.k} style={{padding:"12px 14px",fontSize:13,color:C.charcoal,whiteSpace:"nowrap"}}>
-                  {c.r ? c.r(row[c.k], row) : row[c.k]}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
+  html, body { height: 100%; font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--ink); }
 
-function Ring({ score, size=110 }) {
-  const r = size/2 - 11;
-  const circ = 2*Math.PI*r;
-  const fill = (score/100)*circ;
-  const col = score>=85?C.fern:score>=65?C.amber:C.rose;
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={C.dew} strokeWidth={9}/>
-      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={col} strokeWidth={9}
-        strokeDasharray={`${fill} ${circ-fill}`} strokeDashoffset={circ/4} strokeLinecap="round"/>
-      <text x={size/2} y={size/2+1} textAnchor="middle" dominantBaseline="middle"
-        style={{fontSize:size<70?13:19,fontWeight:700,fill:C.ink,fontFamily:"DM Sans"}}>{score}%</text>
-    </svg>
-  );
-}
+  h1,h2,h3,h4,h5,h6 { font-family: 'Syne', sans-serif; }
 
-function Spark({ data, color=C.fern, h=64 }) {
-  const W=360; const mn=Math.min(...data)-4; const mx=Math.max(...data)+4;
-  const pts = data.map((v,i) => `${(i/(data.length-1))*W},${h-((v-mn)/(mx-mn))*h}`).join(" ");
-  const area = `0,${h} ${pts} ${W},${h}`;
-  return (
-    <svg viewBox={`0 0 ${W} ${h}`} width="100%" height={h} preserveAspectRatio="none" style={{display:"block"}}>
-      <defs><linearGradient id="sg2" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stopColor={color} stopOpacity=".22"/>
-        <stop offset="100%" stopColor={color} stopOpacity=".01"/>
-      </linearGradient></defs>
-      <polygon points={area} fill="url(#sg2)"/>
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  );
-}
+  a { text-decoration: none; color: inherit; }
 
-/* ═══════════════════════════════════════════════════════════════
-   SIDEBAR
-═══════════════════════════════════════════════════════════════ */
-function Sidebar({ role, active, setPage, logout }) {
-  const navs = {
-    Farmer: [
-      {icon:"🏠",label:"Dashboard",   page:"farmer-dash"},
-      {icon:"📦",label:"Batches",     page:"farmer-batches"},
-      {icon:"🔗",label:"Supply Chain",page:"supply-chain"},
-      {icon:"📷",label:"QR Codes",    page:"qr-scan"},
-      {icon:"📊",label:"Reports",     page:"reports"},
-    ],
-    Distributor: [
-      {icon:"🏠",label:"Dashboard", page:"dist-dash"},
-      {icon:"🚚",label:"Shipments", page:"dist-ships"},
-      {icon:"🏪",label:"Inventory", page:"dist-inv"},
-    ],
-    Admin: [
-      {icon:"🏠",label:"Dashboard",page:"admin-dash"},
-      {icon:"👥",label:"Users",    page:"admin-users"},
-      {icon:"⚙️",label:"Settings", page:"admin-settings"},
-    ],
-  };
-  const items = navs[role] || [];
-  const names = { Farmer:"John Kamau", Distributor:"Mary Odhiambo", Admin:"Susan Mwangi" };
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--lime); border-radius: 3px; }
 
-  return (
-    <aside style={{
-      width:228, minHeight:"100vh",
-      background:`linear-gradient(180deg,${C.forest} 0%,${C.pine} 100%)`,
-      display:"flex", flexDirection:"column", flexShrink:0,
-      position:"sticky", top:0, height:"100vh", overflowY:"auto",
-    }}>
-      {/* Brand */}
-      <div style={{padding:"26px 20px 18px",borderBottom:`1px solid rgba(255,255,255,.08)`}}>
-        <div style={{display:"flex",alignItems:"center",gap:11}}>
-          <div style={{
-            width:40,height:40,borderRadius:10,flexShrink:0,
-            background:`linear-gradient(135deg,${C.sage},${C.fern})`,
-            display:"flex",alignItems:"center",justifyContent:"center",
-            fontSize:22,boxShadow:`0 4px 12px rgba(106,184,127,.38)`,
-          }}>🌾</div>
-          <div>
-            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,fontWeight:600,color:C.white,letterSpacing:"-.02em"}}>FarmChainX</div>
-            <div style={{fontSize:9,color:C.mint,fontWeight:600,letterSpacing:".06em",textTransform:"uppercase",marginTop:1}}>{role} Portal</div>
-          </div>
-        </div>
-      </div>
+  /* ── Layout ── */
+  .app-shell { display: flex; min-height: 100vh; }
+  .main-content { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .page-body { flex: 1; padding: 28px; overflow-y: auto; }
 
-      {/* Nav */}
-      <nav style={{flex:1,padding:"12px 10px",display:"flex",flexDirection:"column",gap:2}}>
-        {items.map(item => {
-          const on = active===item.page;
-          return (
-            <button key={item.page} onClick={()=>setPage(item.page)} className="ni" style={{
-              display:"flex",alignItems:"center",gap:10,
-              padding:"9px 12px",borderRadius:10,border:"none",
-              background:on?"rgba(255,255,255,.15)":"transparent",
-              color:on?C.white:"rgba(255,255,255,.58)",
-              fontSize:13,fontWeight:on?600:400,textAlign:"left",cursor:"pointer",
-              borderLeft:on?`3px solid ${C.sage}`:"3px solid transparent",
-            }}>
-              <span style={{fontSize:15,opacity:on?1:.7}}>{item.icon}</span>
-              {item.label}
-            </button>
-          );
-        })}
-      </nav>
+  /* ── Sidebar ── */
+  .sidebar {
+    width: var(--sidebar-w); background: var(--forest); color: var(--white);
+    display: flex; flex-direction: column; position: fixed; top: 0; left: 0;
+    height: 100vh; z-index: 100; transition: transform .3s;
+  }
+  .sidebar-logo {
+    padding: 20px 20px 16px; border-bottom: 1px solid rgba(255,255,255,0.08);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .sidebar-logo-icon {
+    width: 36px; height: 36px; background: var(--sage); border-radius: 8px;
+    display: flex; align-items: center; justify-content: center; font-size: 18px;
+  }
+  .sidebar-logo-text { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 15px; line-height: 1.1; }
+  .sidebar-logo-sub { font-size: 10px; opacity: 0.5; font-weight: 400; }
+  .sidebar-section { padding: 16px 12px 4px; }
+  .sidebar-section-label { font-size: 10px; letter-spacing: 1.5px; opacity: 0.4; font-weight: 600; text-transform: uppercase; padding: 0 8px; margin-bottom: 4px; }
+  .sidebar-link {
+    display: flex; align-items: center; gap: 10px; padding: 9px 12px;
+    border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer;
+    transition: all .15s; color: rgba(255,255,255,0.7); margin-bottom: 2px;
+  }
+  .sidebar-link:hover { background: rgba(255,255,255,0.08); color: var(--white); }
+  .sidebar-link.active { background: var(--sage); color: var(--white); }
+  .sidebar-link-icon { width: 18px; text-align: center; font-size: 16px; }
+  .sidebar-footer { margin-top: auto; padding: 16px; border-top: 1px solid rgba(255,255,255,0.08); }
+  .sidebar-user { display: flex; align-items: center; gap: 10px; }
+  .sidebar-avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--sage); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; }
+  .sidebar-user-info { flex: 1; min-width: 0; }
+  .sidebar-user-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sidebar-user-role { font-size: 11px; opacity: 0.5; }
 
-      {/* User */}
-      <div style={{padding:"12px 10px",borderTop:`1px solid rgba(255,255,255,.08)`}}>
-        <div style={{
-          display:"flex",alignItems:"center",gap:10,
-          padding:"9px 12px",borderRadius:10,background:"rgba(255,255,255,.07)",marginBottom:6,
-        }}>
-          <div style={{
-            width:30,height:30,borderRadius:"50%",flexShrink:0,
-            background:`linear-gradient(135deg,${C.sage},${C.fern})`,
-            display:"flex",alignItems:"center",justifyContent:"center",
-            fontSize:12,fontWeight:700,color:C.white,
-          }}>{role?.[0]}</div>
-          <div>
-            <div style={{fontSize:12,color:C.white,fontWeight:600}}>{names[role]}</div>
-            <div style={{fontSize:10,color:C.mint}}>user@farmchainx.io</div>
-          </div>
-        </div>
-        <button onClick={logout} className="ni" style={{
-          width:"100%",display:"flex",alignItems:"center",gap:8,
-          padding:"8px 12px",borderRadius:8,background:"transparent",
-          color:"rgba(255,255,255,.45)",fontSize:12,border:"none",cursor:"pointer",
-        }}>
-          <span>🚪</span> Sign Out
-        </button>
-      </div>
-    </aside>
-  );
-}
+  /* ── Topbar ── */
+  .topbar {
+    height: var(--topbar-h); background: var(--white); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 16px; padding: 0 24px;
+    position: sticky; top: 0; z-index: 50; margin-left: var(--sidebar-w);
+  }
+  .topbar-title { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; flex: 1; }
+  .topbar-actions { display: flex; align-items: center; gap: 12px; }
+  .topbar-btn {
+    width: 38px; height: 38px; border-radius: 8px; border: 1px solid var(--border);
+    background: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-size: 16px; position: relative; transition: all .15s;
+  }
+  .topbar-btn:hover { background: var(--bg); }
+  .badge {
+    position: absolute; top: -4px; right: -4px; width: 16px; height: 16px;
+    background: var(--sage); border-radius: 50%; font-size: 9px; color: white;
+    display: flex; align-items: center; justify-content: center; font-weight: 700;
+  }
 
-/* ═══════════════════════════════════════════════════════════════
-   DATA
-═══════════════════════════════════════════════════════════════ */
+  /* ── Content with sidebar offset ── */
+  .with-sidebar { margin-left: var(--sidebar-w); }
+
+  /* ── Public nav ── */
+  .pub-nav {
+    height: var(--topbar-h); background: var(--white); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; padding: 0 32px; gap: 32px; position: sticky; top: 0; z-index: 100;
+  }
+  .pub-nav-logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 18px; color: var(--forest); display: flex; align-items: center; gap: 8px; }
+  .pub-nav-links { display: flex; gap: 8px; flex: 1; }
+  .pub-nav-link { padding: 7px 14px; border-radius: 8px; font-size: 14px; font-weight: 500; color: var(--muted); transition: all .15s; cursor: pointer; }
+  .pub-nav-link:hover { color: var(--forest); background: var(--bg); }
+  .pub-nav-link.active { color: var(--forest); font-weight: 600; }
+  .pub-nav-actions { display: flex; gap: 8px; align-items: center; }
+
+  /* ── Buttons ── */
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px; padding: 9px 18px;
+    border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: all .15s; border: none; font-family: 'DM Sans', sans-serif; white-space: nowrap;
+  }
+  .btn-primary { background: var(--sage); color: white; }
+  .btn-primary:hover { background: var(--pine); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(74,140,92,0.3); }
+  .btn-secondary { background: var(--bg); color: var(--ink); border: 1px solid var(--border); }
+  .btn-secondary:hover { background: var(--sand); }
+  .btn-outline { background: transparent; color: var(--sage); border: 2px solid var(--sage); }
+  .btn-outline:hover { background: var(--sage); color: white; }
+  .btn-danger { background: #dc2626; color: white; }
+  .btn-danger:hover { background: #b91c1c; }
+  .btn-sm { padding: 6px 12px; font-size: 13px; }
+  .btn-lg { padding: 14px 28px; font-size: 16px; }
+  .btn-icon { padding: 9px; width: 38px; height: 38px; justify-content: center; }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+  }
+  .card-pad { padding: 24px; }
+  .card-header { padding: 18px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .card-body { padding: 20px 24px; }
+
+  /* ── Stat Cards ── */
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .stat-card {
+    background: var(--card); border-radius: var(--radius); padding: 20px;
+    border: 1px solid var(--border); box-shadow: var(--shadow);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .stat-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+  .stat-value { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 800; }
+  .stat-label { font-size: 13px; color: var(--muted); font-weight: 500; }
+  .stat-delta { font-size: 12px; font-weight: 600; }
+  .stat-delta.up { color: #16a34a; }
+  .stat-delta.down { color: #dc2626; }
+
+  /* ── Product Cards ── */
+  .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; }
+  .product-card {
+    background: var(--card); border-radius: var(--radius); border: 1px solid var(--border);
+    box-shadow: var(--shadow); overflow: hidden; transition: all .2s; cursor: pointer;
+  }
+  .product-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
+  .product-img {
+    height: 160px; background: linear-gradient(135deg, var(--lime) 0%, var(--sage) 100%);
+    display: flex; align-items: center; justify-content: center; font-size: 52px; position: relative;
+  }
+  .product-badge {
+    position: absolute; top: 10px; left: 10px; background: var(--forest); color: white;
+    font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 20px;
+  }
+  .product-info { padding: 16px; }
+  .product-name { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .product-farmer { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  .product-meta { display: flex; align-items: center; justify-content: space-between; }
+  .product-price { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 800; color: var(--pine); }
+  .product-rating { font-size: 12px; color: var(--bark); }
+
+  /* ── Tables ── */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { background: var(--bg); padding: 11px 16px; text-align: left; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); }
+  td { padding: 13px 16px; border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg); }
+
+  /* ── Badges ── */
+  .pill { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+  .pill-green { background: #dcfce7; color: #15803d; }
+  .pill-yellow { background: #fef9c3; color: #854d0e; }
+  .pill-red { background: #fee2e2; color: #991b1b; }
+  .pill-blue { background: #dbeafe; color: #1d4ed8; }
+  .pill-gray { background: #f3f4f6; color: #4b5563; }
+  .pill-orange { background: #ffedd5; color: #9a3412; }
+
+  /* ── Forms ── */
+  .form-group { margin-bottom: 18px; }
+  .form-label { display: block; font-size: 13px; font-weight: 600; color: var(--ink); margin-bottom: 6px; }
+  .form-input {
+    width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px;
+    font-size: 14px; font-family: 'DM Sans', sans-serif; background: white; color: var(--ink);
+    transition: border-color .15s; outline: none;
+  }
+  .form-input:focus { border-color: var(--sage); box-shadow: 0 0 0 3px rgba(74,140,92,0.12); }
+  .form-select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235a6b5a' stroke-width='1.5' fill='none'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 36px; }
+  textarea.form-input { min-height: 100px; resize: vertical; }
+
+  /* ── Timeline ── */
+  .timeline { position: relative; padding-left: 28px; }
+  .timeline::before { content: ''; position: absolute; left: 9px; top: 0; bottom: 0; width: 2px; background: var(--border); }
+  .timeline-item { position: relative; margin-bottom: 20px; }
+  .timeline-dot {
+    position: absolute; left: -23px; top: 4px; width: 14px; height: 14px;
+    border-radius: 50%; background: var(--sage); border: 3px solid white; box-shadow: 0 0 0 2px var(--sage);
+  }
+  .timeline-dot.done { background: var(--pine); }
+  .timeline-dot.pending { background: var(--border); box-shadow: 0 0 0 2px var(--border); }
+  .timeline-title { font-weight: 600; font-size: 14px; }
+  .timeline-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  /* ── Chart placeholder ── */
+  .chart-bar-wrap { display: flex; align-items: flex-end; gap: 6px; height: 120px; padding-top: 8px; }
+  .chart-bar { flex: 1; border-radius: 4px 4px 0 0; background: linear-gradient(180deg, var(--mint) 0%, var(--sage) 100%); transition: all .3s; cursor: pointer; min-width: 12px; }
+  .chart-bar:hover { filter: brightness(1.1); }
+  .chart-labels { display: flex; gap: 6px; margin-top: 6px; }
+  .chart-label { flex: 1; text-align: center; font-size: 10px; color: var(--muted); }
+
+  /* ── Misc ── */
+  .page-header { margin-bottom: 24px; }
+  .page-title { font-family: 'Syne', sans-serif; font-size: 24px; font-weight: 800; }
+  .page-sub { color: var(--muted); font-size: 14px; margin-top: 4px; }
+  .section-title { font-family: 'Syne', sans-serif; font-size: 17px; font-weight: 700; margin-bottom: 16px; }
+  .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+  .flex { display: flex; }
+  .flex-1 { flex: 1; }
+  .items-center { align-items: center; }
+  .justify-between { justify-content: space-between; }
+  .gap-2 { gap: 8px; }
+  .gap-3 { gap: 12px; }
+  .gap-4 { gap: 16px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+  .mb-4 { margin-bottom: 16px; }
+  .mb-6 { margin-bottom: 24px; }
+  .mt-4 { margin-top: 16px; }
+  .text-muted { color: var(--muted); font-size: 13px; }
+  .text-sm { font-size: 13px; }
+  .font-bold { font-weight: 700; }
+  .w-full { width: 100%; }
+  .rounded { border-radius: var(--radius); }
+  .p-4 { padding: 16px; }
+  .qr-box {
+    width: 160px; height: 160px; border: 2px solid var(--border); border-radius: 12px;
+    display: flex; align-items: center; justify-content: center; font-size: 72px;
+    background: white; box-shadow: var(--shadow);
+  }
+  .hero { background: linear-gradient(135deg, var(--forest) 0%, var(--pine) 60%, var(--sage) 100%); color: white; padding: 80px 32px; text-align: center; }
+  .hero-title { font-family: 'Syne', sans-serif; font-size: 48px; font-weight: 800; line-height: 1.1; margin-bottom: 16px; }
+  .hero-sub { font-size: 18px; opacity: 0.8; max-width: 560px; margin: 0 auto 32px; }
+  .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 24px; padding: 48px 32px; }
+  .feature-card { background: white; border-radius: var(--radius); padding: 28px; border: 1px solid var(--border); box-shadow: var(--shadow); }
+  .feature-icon { font-size: 36px; margin-bottom: 14px; }
+  .feature-title { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+  .feature-desc { font-size: 14px; color: var(--muted); line-height: 1.6; }
+  .chain-step { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .chain-icon { width: 64px; height: 64px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 28px; }
+  .chain-arrow { font-size: 24px; color: var(--muted); }
+  .chain-label { font-size: 13px; font-weight: 600; }
+  .chatbot {
+    position: fixed; bottom: 24px; right: 24px; z-index: 999;
+  }
+  .chatbot-btn {
+    width: 56px; height: 56px; border-radius: 50%; background: var(--sage); color: white;
+    display: flex; align-items: center; justify-content: center; font-size: 22px;
+    cursor: pointer; box-shadow: 0 4px 20px rgba(74,140,92,0.4); border: none; transition: all .2s;
+  }
+  .chatbot-btn:hover { transform: scale(1.08); background: var(--pine); }
+  .chatbot-panel {
+    position: absolute; bottom: 64px; right: 0; width: 300px; background: white;
+    border-radius: 16px; box-shadow: var(--shadow-lg); border: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .chatbot-header { background: var(--forest); color: white; padding: 14px 16px; display: flex; align-items: center; gap: 10px; }
+  .chatbot-messages { height: 220px; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .chat-msg { padding: 8px 12px; border-radius: 10px; font-size: 13px; max-width: 85%; }
+  .chat-msg.bot { background: var(--bg); align-self: flex-start; }
+  .chat-msg.user { background: var(--sage); color: white; align-self: flex-end; }
+  .chatbot-input { display: flex; padding: 10px; border-top: 1px solid var(--border); gap: 6px; }
+  .chatbot-input input { flex: 1; border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; font-size: 13px; outline: none; }
+  .chatbot-input input:focus { border-color: var(--sage); }
+  .empty-state { text-align: center; padding: 60px 20px; }
+  .empty-icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-title { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+  .empty-desc { color: var(--muted); font-size: 14px; }
+  .inventory-bar { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; margin-top: 4px; }
+  .inventory-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--sage), var(--mint)); }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; background: var(--lime); color: var(--forest); margin-right: 4px; }
+  .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, var(--forest) 0%, var(--pine) 100%); padding: 20px; }
+  .login-card { background: white; border-radius: 20px; padding: 40px; width: 100%; max-width: 420px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
+  .login-logo { text-align: center; margin-bottom: 28px; }
+  .login-title { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 800; margin-bottom: 6px; }
+  .role-btn { width: 100%; padding: 12px; border-radius: 10px; border: 2px solid var(--border); background: white; cursor: pointer; text-align: left; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; transition: all .15s; display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .role-btn:hover { border-color: var(--sage); background: #f0faf2; }
+  .role-btn.selected { border-color: var(--sage); background: #f0faf2; }
+  .cart-item { display: flex; align-items: center; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+  .cart-item-img { width: 56px; height: 56px; background: linear-gradient(135deg, var(--lime), var(--sage)); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0; }
+  .qty-ctrl { display: flex; align-items: center; gap: 8px; }
+  .qty-btn { width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border); background: white; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; }
+  .qty-btn:hover { background: var(--bg); }
+`;
+
+// ─── Data ──────────────────────────────────────────────────────────────────
+const PRODUCTS = [
+  { id: 1, name: "Organic Basmati Rice", farmer: "Ravi Kumar Farm", price: 85, unit: "kg", icon: "🌾", category: "Grains", rating: "4.8", origin: "Punjab", certified: true, stock: 450, desc: "Premium long-grain basmati rice grown without pesticides in the fertile fields of Punjab. Aged 2 years for superior aroma." },
+  { id: 2, name: "Alphonso Mangoes", farmer: "Devgad Farms", price: 320, unit: "dozen", icon: "🥭", category: "Fruits", rating: "4.9", origin: "Ratnagiri", certified: true, stock: 120, desc: "GI-tagged Alphonso mangoes from Ratnagiri. Hand-picked at perfect ripeness for maximum sweetness." },
+  { id: 3, name: "Fresh Spinach", farmer: "GreenLeaf Co-op", price: 28, unit: "bundle", icon: "🥬", category: "Vegetables", rating: "4.6", origin: "Nashik", certified: false, stock: 80, desc: "Tender baby spinach leaves harvested daily at dawn. Perfect for salads and cooking." },
+  { id: 4, name: "Turmeric Powder", farmer: "Spice Valley", price: 160, unit: "500g", icon: "🌿", category: "Spices", rating: "4.7", origin: "Erode", certified: true, stock: 300, desc: "High-curcumin Lakadong turmeric, stone-ground to preserve natural oils and potency." },
+  { id: 5, name: "Red Onions", farmer: "Nasik Onion Farm", price: 35, unit: "kg", icon: "🧅", category: "Vegetables", rating: "4.5", origin: "Nashik", certified: false, stock: 600, desc: "Large, pungent red onions perfect for Indian cooking. Directly from Nashik's best farms." },
+  { id: 6, name: "A2 Cow Ghee", farmer: "Gir Gaushala", price: 850, unit: "liter", icon: "🫙", category: "Dairy", rating: "5.0", origin: "Gujarat", certified: true, stock: 90, desc: "Traditionally churned ghee from free-grazing Gir cows. Bilona method ensures premium quality." },
+  { id: 7, name: "Finger Millet", farmer: "Sahyadri Organics", price: 72, unit: "kg", icon: "🌱", category: "Grains", rating: "4.7", origin: "Karnataka", certified: true, stock: 200, desc: "Nutrient-dense ragi (finger millet) grown using traditional methods in Karnataka highlands." },
+  { id: 8, name: "Moringa Leaves", farmer: "TropiFarm", price: 45, unit: "250g", icon: "🍃", category: "Herbs", rating: "4.8", origin: "Tamil Nadu", certified: true, stock: 150, desc: "Freshly dried moringa drumstick leaves, packed with nutrients. Sustainably harvested." },
+];
+
 const BATCHES = [
-  {id:"FCX-0241",crop:"Organic Tomatoes",qty:"1,200 kg",status:"Delivered",  score:94,variety:"Roma F1",     location:"Nakuru, Kenya",  date:"Feb 14, 2026",farmer:"John Kamau"},
-  {id:"FCX-0242",crop:"Sweet Corn",       qty:"2,400 kg",status:"In Transit",score:88,variety:"Golden Gem",  location:"Meru, Kenya",    date:"Feb 22, 2026",farmer:"John Kamau"},
-  {id:"FCX-0243",crop:"French Beans",     qty:"800 kg",  status:"Processing",score:91,variety:"Serengeti",   location:"Nakuru, Kenya",  date:"Mar 1, 2026", farmer:"John Kamau"},
-  {id:"FCX-0244",crop:"Avocado",          qty:"3,600 kg",status:"Harvested", score:97,variety:"Hass",        location:"Muranga, Kenya", date:"Mar 3, 2026", farmer:"John Kamau"},
-  {id:"FCX-0245",crop:"Spinach",          qty:"450 kg",  status:"Stored",    score:82,variety:"Bloomsdale",  location:"Kiambu, Kenya",  date:"Mar 4, 2026", farmer:"John Kamau"},
+  { id: "BCH-001", product: "Organic Basmati Rice", qty: "500 kg", date: "2024-03-01", status: "delivered", price: 42500 },
+  { id: "BCH-002", product: "Turmeric Powder", qty: "200 kg", date: "2024-03-05", status: "in_transit", price: 32000 },
+  { id: "BCH-003", product: "Fresh Spinach", qty: "80 bundles", date: "2024-03-08", status: "processing", price: 2240 },
+  { id: "BCH-004", product: "Finger Millet", qty: "350 kg", date: "2024-03-10", status: "pending", price: 25200 },
 ];
+
 const SHIPMENTS = [
-  {id:"FCX-0241",crop:"Organic Tomatoes",from:"Nakuru Farm",  to:"Nairobi Depot", status:"Delivered",  eta:"Feb 16"},
-  {id:"FCX-0242",crop:"Sweet Corn",       from:"Meru Farm",   to:"Mombasa Port",  status:"In Transit", eta:"Mar 8"},
-  {id:"FCX-0243",crop:"French Beans",     from:"Nakuru Farm", to:"Eldoret Hub",   status:"Processing", eta:"Mar 10"},
-  {id:"FCX-0246",crop:"Potatoes",         from:"Nyandarua",   to:"Nairobi Depot", status:"In Transit", eta:"Mar 7"},
-];
-const USERS_DATA = [
-  {name:"John Kamau",    email:"john@farmchainx.io",  role:"Farmer",      status:"Active",  joined:"Jan 12"},
-  {name:"Mary Odhiambo", email:"mary@farmchainx.io",  role:"Distributor", status:"Active",  joined:"Jan 18"},
-  {name:"Peter Njoroge", email:"peter@farmchainx.io", role:"Farmer",      status:"Inactive",joined:"Feb 2"},
-  {name:"Grace Wanjiku", email:"grace@farmchainx.io", role:"Farmer",      status:"Active",  joined:"Feb 10"},
-  {name:"Ahmed Hassan",  email:"ahmed@farmchainx.io", role:"Distributor", status:"Pending", joined:"Feb 22"},
-  {name:"Susan Mwangi",  email:"susan@farmchainx.io", role:"Admin",       status:"Active",  joined:"Jan 5"},
+  { id: "SHP-101", batch: "BCH-001", from: "Punjab", to: "Delhi Hub", status: "delivered", eta: "2024-03-07", weight: "500 kg" },
+  { id: "SHP-102", batch: "BCH-002", from: "Erode", to: "Mumbai DC", status: "in_transit", eta: "2024-03-12", weight: "200 kg" },
+  { id: "SHP-103", batch: "BCH-004", from: "Karnataka", to: "Bangalore DC", status: "pending", eta: "2024-03-15", weight: "350 kg" },
 ];
 
-/* ═══════════════════════════════════════════════════════════════
-   PAGES
-═══════════════════════════════════════════════════════════════ */
+const USERS_LIST = [
+  { id: 1, name: "Ravi Kumar", email: "ravi@farm.in", role: "Farmer", status: "active", joined: "Jan 2024" },
+  { id: 2, name: "Priya Sharma", email: "priya@dist.in", role: "Distributor", status: "active", joined: "Feb 2024" },
+  { id: 3, name: "Amit Patel", email: "amit@retail.in", role: "Retailer", status: "active", joined: "Feb 2024" },
+  { id: 4, name: "Meera Nair", email: "meera@email.in", role: "Consumer", status: "active", joined: "Mar 2024" },
+  { id: 5, name: "Suresh Reddy", email: "suresh@farm.in", role: "Farmer", status: "inactive", joined: "Jan 2024" },
+  { id: 6, name: "Kavita Singh", email: "kavita@retail.in", role: "Retailer", status: "active", joined: "Mar 2024" },
+];
 
-/* ── LOGIN ── */
-function LoginPage({ onLogin }) {
-  const [email, setEmail] = useState("john@farmchainx.io");
-  const [pass, setPass] = useState("password");
-  const [role, setRole] = useState("Farmer");
-  const [rem, setRem] = useState(true);
+
+
+// ─── Chatbot Widget ──────────────────────────────────────────────────────────
+function ChatBot() {
+  const [open, setOpen] = useState(false);
+  const [msgs, setMsgs] = useState([
+    { from: "bot", text: "Hi! I'm FarmBot 🌱 How can I help you today?" },
+    { from: "bot", text: "I can help with orders, batches, or supply chain queries." }
+  ]);
+  const [input, setInput] = useState("");
+  const botReplies = [
+    "I'm checking that for you... ✅",
+    "Your batch BCH-002 is currently in transit and expected to arrive by Mar 12.",
+    "To trace a product, scan the QR code on the packaging.",
+    "Certified organic products are marked with the 🌿 badge.",
+    "For urgent issues, please raise a support ticket."
+  ];
+  const send = () => {
+    if (!input.trim()) return;
+    setMsgs(m => [...m, { from: "user", text: input }]);
+    const reply = botReplies[Math.floor(Math.random() * botReplies.length)];
+    setTimeout(() => setMsgs(m => [...m, { from: "bot", text: reply }]), 800);
+    setInput("");
+  };
+  return (
+    <div className="chatbot">
+      {open && (
+        <div className="chatbot-panel">
+          <div className="chatbot-header">
+            <span style={{ fontSize: 20 }}>🤖</span>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>FarmBot AI</div>
+              <div style={{ fontSize: 11, opacity: 0.7 }}>Always online</div>
+            </div>
+            <button onClick={() => setOpen(false)} style={{ marginLeft: "auto", background: "none", border: "none", color: "white", cursor: "pointer", fontSize: 18 }}>✕</button>
+          </div>
+          <div className="chatbot-messages">
+            {msgs.map((m, i) => <div key={i} className={`chat-msg ${m.from}`}>{m.text}</div>)}
+          </div>
+          <div className="chatbot-input">
+            <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && send()} placeholder="Type a message..." />
+            <button className="btn btn-primary btn-sm" onClick={send}>↑</button>
+          </div>
+        </div>
+      )}
+      <button className="chatbot-btn" onClick={() => setOpen(o => !o)}>🤖</button>
+    </div>
+  );
+}
+
+// ─── Sidebar ─────────────────────────────────────────────────────────────────
+function Sidebar({ role, nav, user }) {
+  const { path } = useRouter();
+  const icons = { "🏠": true, "📦": true, "🚚": true, "📊": true, "👥": true };
+  return (
+    <div className="sidebar">
+      <div className="sidebar-logo">
+        <div className="sidebar-logo-icon">🌾</div>
+        <div>
+          <div className="sidebar-logo-text">FarmChainX</div>
+          <div className="sidebar-logo-sub">{role} Portal</div>
+        </div>
+      </div>
+      {nav.map((section, si) => (
+        <div className="sidebar-section" key={si}>
+          {section.label && <div className="sidebar-section-label">{section.label}</div>}
+          {section.items.map((item, ii) => (
+            <Link key={ii} to={item.href}>
+              <div className={`sidebar-link ${path === item.href ? "active" : ""}`}>
+                <span className="sidebar-link-icon">{item.icon}</span>
+                {item.label}
+              </div>
+            </Link>
+          ))}
+        </div>
+      ))}
+      <div className="sidebar-footer">
+        <div className="sidebar-user">
+          <div className="sidebar-avatar">{user.name[0]}</div>
+          <div className="sidebar-user-info">
+            <div className="sidebar-user-name">{user.name}</div>
+            <div className="sidebar-user-role">{role}</div>
+          </div>
+          <Link to="/login"><span style={{ cursor: "pointer", opacity: 0.5, fontSize: 16 }}>↩</span></Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Topbar ───────────────────────────────────────────────────────────────────
+function Topbar({ title, cartCount = 0 }) {
+  return (
+    <div className="topbar">
+      <div className="topbar-title">{title}</div>
+      <div className="topbar-actions">
+        <button className="topbar-btn" title="Search">🔍</button>
+        <button className="topbar-btn" title="Notifications">
+          🔔<span className="badge">3</span>
+        </button>
+        {cartCount > 0 && (
+          <Link to="/consumer/cart">
+            <button className="topbar-btn">🛒<span className="badge">{cartCount}</span></button>
+          </Link>
+        )}
+        <button className="topbar-btn">⚙️</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Public Nav ───────────────────────────────────────────────────────────────
+function PublicNav({ cartCount }) {
+  const { path } = useRouter();
+  return (
+    <nav className="pub-nav">
+      <Link to="/">
+        <div className="pub-nav-logo">🌾 FarmChainX</div>
+      </Link>
+      <div className="pub-nav-links">
+        {[["Home", "/"], ["Marketplace", "/marketplace"], ["About", "/about"], ["Help", "/help"]].map(([l, h]) => (
+          <Link key={h} to={h}><div className={`pub-nav-link ${path === h ? "active" : ""}`}>{l}</div></Link>
+        ))}
+      </div>
+      <div className="pub-nav-actions">
+        <Link to="/consumer/cart">
+          <button className="btn btn-secondary btn-sm">🛒 {cartCount > 0 ? `(${cartCount})` : "Cart"}</button>
+        </Link>
+        <Link to="/login">
+          <button className="btn btn-primary btn-sm">Sign In →</button>
+        </Link>
+      </div>
+    </nav>
+  );
+}
+
+// ─── Mini Charts ──────────────────────────────────────────────────────────────
+function BarChart({ data, labels }) {
+  const max = Math.max(...data);
+  return (
+    <div>
+      <div className="chart-bar-wrap">
+        {data.map((v, i) => (
+          <div key={i} className="chart-bar" style={{ height: `${(v / max) * 100}%` }} title={v} />
+        ))}
+      </div>
+      <div className="chart-labels">
+        {labels.map((l, i) => <div key={i} className="chart-label">{l}</div>)}
+      </div>
+    </div>
+  );
+}
+
+// ─── HOME ─────────────────────────────────────────────────────────────────────
+function HomePage() {
+  return (
+    <div>
+      <PublicNav cartCount={0} />
+      <div className="hero">
+        <div style={{ fontSize: 48, marginBottom: 16 }}>🌾</div>
+        <div className="hero-title">Transparent Farm-to-Fork<br />Supply Chain</div>
+        <div className="hero-sub">FarmChainX connects farmers, distributors, retailers and consumers through blockchain-verified traceability. Know exactly where your food comes from.</div>
+        <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+          <Link to="/marketplace"><button className="btn btn-primary btn-lg">Browse Marketplace</button></Link>
+          <Link to="/login"><button className="btn" style={{ background: "rgba(255,255,255,0.15)", color: "white", fontSize: 16, padding: "14px 28px", borderRadius: 8, border: "2px solid rgba(255,255,255,0.3)", cursor: "pointer" }}>Get Started →</button></Link>
+        </div>
+      </div>
+
+      {/* Chain flow */}
+      <div style={{ background: "white", padding: "48px 32px" }}>
+        <div style={{ textAlign: "center", marginBottom: 32 }}>
+          <h2 style={{ fontFamily: "Syne", fontSize: 28, fontWeight: 800 }}>How It Works</h2>
+          <p style={{ color: "var(--muted)", marginTop: 8 }}>End-to-end transparency from seed to shelf</p>
+        </div>
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          {[
+            ["🧑‍🌾", "Farmer", "Creates batch, logs harvest data"],
+            ["🚛", "Distributor", "Ships and tracks logistics"],
+            ["🏪", "Retailer", "Lists on platform with trace"],
+            ["👨‍👩‍👧", "Consumer", "Scans QR, verifies origin"],
+          ].map(([icon, label, desc], i, arr) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              <div className="chain-step">
+                <div className="chain-icon" style={{ background: `hsl(${140 - i * 15}, 50%, ${88 - i * 4}%)` }}>{icon}</div>
+                <div className="chain-label">{label}</div>
+                <div style={{ fontSize: 12, color: "var(--muted)", textAlign: "center", maxWidth: 100 }}>{desc}</div>
+              </div>
+              {i < arr.length - 1 && <div className="chain-arrow">→</div>}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="feature-grid" style={{ background: "var(--bg)" }}>
+        {[
+          ["🔗", "Blockchain Verified", "Every transaction recorded immutably. Full audit trail from farm to fork."],
+          ["📱", "QR Traceability", "Consumers scan QR codes to instantly see product journey and certifications."],
+          ["📊", "Real-time Analytics", "Farmers and distributors get actionable insights on sales and logistics."],
+          ["🌿", "Certified Organic", "Verified certifications displayed prominently for conscious consumers."],
+          ["🤖", "AI Assistant", "FarmBot answers queries 24/7 for all stakeholders in the chain."],
+          ["🛒", "Seamless Commerce", "Integrated marketplace with secure payments and order tracking."],
+        ].map(([icon, title, desc]) => (
+          <div className="feature-card" key={title}>
+            <div className="feature-icon">{icon}</div>
+            <div className="feature-title">{title}</div>
+            <div className="feature-desc">{desc}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Stats */}
+      <div style={{ background: "var(--forest)", color: "white", padding: "48px 32px", textAlign: "center" }}>
+        <h2 style={{ fontFamily: "Syne", fontSize: 28, fontWeight: 800, marginBottom: 32 }}>Trusted by the Ecosystem</h2>
+        <div style={{ display: "flex", justifyContent: "center", gap: 60, flexWrap: "wrap" }}>
+          {[["1,240+", "Farmers"], ["380+", "Distributors"], ["920+", "Retailers"], ["48,000+", "Consumers"]].map(([v, l]) => (
+            <div key={l}>
+              <div style={{ fontFamily: "Syne", fontSize: 36, fontWeight: 800, color: "var(--mint)" }}>{v}</div>
+              <div style={{ opacity: 0.7, marginTop: 4 }}>{l}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ padding: "32px", textAlign: "center", borderTop: "1px solid var(--border)", background: "white", color: "var(--muted)", fontSize: 13 }}>
+        © 2024 FarmChainX · Transparent Agricultural Supply Chain · Made with 🌱
+      </div>
+      <ChatBot />
+    </div>
+  );
+}
+
+// ─── LOGIN ────────────────────────────────────────────────────────────────────
+function LoginPage() {
+  const { setUser } = useAuth();
+  const [selectedRole, setSelectedRole] = useState("farmer");
+  const [email, setEmail] = useState("demo@farmchainx.in");
+  const [password, setPassword] = useState("demo1234");
+  const { navigate } = useRouter();
+
+  const roleMap = {
+    farmer: { name: "Ravi Kumar", icon: "🧑‍🌾", dest: "/farmer/dashboard" },
+    distributor: { name: "Priya Sharma", icon: "🚛", dest: "/distributor/dashboard" },
+    retailer: { name: "Amit Patel", icon: "🏪", dest: "/retailer/dashboard" },
+    consumer: { name: "Meera Nair", icon: "👤", dest: "/consumer/cart" },
+
+  };
+
+  const handleLogin = () => {
+    const r = roleMap[selectedRole];
+    setUser({ name: r.name, role: selectedRole, icon: r.icon });
+    navigate(r.dest);
+  };
 
   return (
-    <div style={{
-      minHeight:"100vh", display:"flex",
-      background:`linear-gradient(145deg,${C.forest} 0%,${C.pine} 45%,${C.moss} 100%)`,
-      position:"relative", overflow:"hidden",
-    }}>
-      {/* Decorative */}
-      {[["-80px","-60px",360,.06],["55%","68%",260,.04],["82%","-30px",190,.05]].map(([t,l,s,o],i)=>(
-        <div key={i} style={{position:"absolute",top:t,left:l,width:s,height:s,borderRadius:"50%",border:`1px solid rgba(255,255,255,${o})`,pointerEvents:"none"}}/>
-      ))}
-      <div style={{position:"absolute",bottom:-80,right:-80,width:480,height:480,background:`radial-gradient(circle,rgba(106,184,127,.18) 0%,transparent 70%)`,pointerEvents:"none"}}/>
+    <div className="login-wrap">
+      <div className="login-card">
+        <div className="login-logo">
+          <div style={{ fontSize: 40 }}>🌾</div>
+          <div className="login-title">FarmChainX</div>
+          <div style={{ color: "var(--muted)", fontSize: 14 }}>Sign in to your account</div>
+        </div>
+        <div style={{ marginBottom: 20 }}>
+          <div className="form-label" style={{ marginBottom: 10 }}>Select your role</div>
+          {Object.entries(roleMap).map(([k, v]) => (
+            <button key={k} className={`role-btn ${selectedRole === k ? "selected" : ""}`} onClick={() => setSelectedRole(k)}>
+              <span style={{ fontSize: 20 }}>{v.icon}</span>
+              <span style={{ textTransform: "capitalize", fontWeight: 600 }}>{k}</span>
+              {selectedRole === k && <span style={{ marginLeft: "auto", color: "var(--sage)" }}>✓</span>}
+            </button>
+          ))}
+        </div>
+        <div className="form-group">
+          <label className="form-label">Email</label>
+          <input className="form-input" value={email} onChange={e => setEmail(e.target.value)} />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Password</label>
+          <input className="form-input" type="password" value={password} onChange={e => setPassword(e.target.value)} />
+        </div>
+        <button className="btn btn-primary w-full btn-lg" style={{ marginTop: 8 }} onClick={handleLogin}>
+          Sign In as {selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1)} →
+        </button>
+        <div style={{ textAlign: "center", marginTop: 16, fontSize: 13, color: "var(--muted)" }}>
+          Demo credentials pre-filled. Just click Sign In.
+        </div>
+      </div>
+    </div>
+  );
+}
 
-      {/* Left – brand */}
-      <div style={{flex:1,display:"flex",flexDirection:"column",justifyContent:"center",padding:"60px 72px",color:C.white}}>
-        <div className="fu">
-          <div style={{
-            display:"inline-flex",alignItems:"center",justifyContent:"center",
-            width:62,height:62,borderRadius:16,marginBottom:26,
-            background:`linear-gradient(135deg,${C.sage},${C.fern})`,
-            fontSize:34,boxShadow:`0 8px 26px rgba(106,184,127,.42)`,
-          }}>🌾</div>
-          <h1 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:56,fontWeight:600,color:C.white,letterSpacing:"-1.8px",lineHeight:1.02,marginBottom:14}}>
-            Farm<span style={{color:C.sage}}>Chain</span>X
-          </h1>
-          <p style={{fontSize:16,color:"rgba(255,255,255,.62)",lineHeight:1.72,maxWidth:350,marginBottom:38}}>
-            AI-driven agricultural traceability from farm to table. Track every batch, verify every harvest.
-          </p>
-          <div style={{display:"flex",gap:20,flexWrap:"wrap"}}>
-            {[["🌱","Blockchain\nTraceability"],["🤖","AI Quality\nPrediction"],["📱","QR Scanning"]].map(([ic,lb])=>(
-              <div key={lb} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6}}>
-                <div style={{
-                  width:44,height:44,borderRadius:12,
-                  background:"rgba(255,255,255,.1)",backdropFilter:"blur(6px)",
-                  display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,
-                }}>{ic}</div>
-                <span style={{fontSize:10,color:"rgba(255,255,255,.46)",textAlign:"center",whiteSpace:"pre-line",lineHeight:1.4}}>{lb}</span>
+// ─── MARKETPLACE ──────────────────────────────────────────────────────────────
+function MarketplacePage() {
+  const { addToCart } = useCart();
+  const { cartItems } = useCart();
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("All");
+  const categories = ["All", "Grains", "Fruits", "Vegetables", "Spices", "Dairy", "Herbs"];
+  const filtered = PRODUCTS.filter(p =>
+    (category === "All" || p.category === category) &&
+    p.name.toLowerCase().includes(search.toLowerCase())
+  );
+  return (
+    <div>
+      <PublicNav cartCount={cartItems.length} />
+      <div style={{ padding: "28px 32px" }}>
+        <div className="page-header flex items-center justify-between">
+          <div>
+            <div className="page-title">Marketplace</div>
+            <div className="page-sub">{filtered.length} products available from verified farms</div>
+          </div>
+          <div className="flex gap-2">
+            <input className="form-input" style={{ width: 220 }} placeholder="🔍 Search products..." value={search} onChange={e => setSearch(e.target.value)} />
+          </div>
+        </div>
+        <div className="flex gap-2 mb-6" style={{ flexWrap: "wrap" }}>
+          {categories.map(c => (
+            <button key={c} className={`btn btn-sm ${category === c ? "btn-primary" : "btn-secondary"}`} onClick={() => setCategory(c)}>{c}</button>
+          ))}
+        </div>
+        <div className="products-grid">
+          {filtered.map(p => (
+            <div key={p.id} className="product-card">
+              <Link to={`/product/${p.id}`}>
+                <div className="product-img">
+                  {p.certified && <div className="product-badge">🌿 Certified</div>}
+                  {p.icon}
+                </div>
+                <div className="product-info">
+                  <div className="product-name">{p.name}</div>
+                  <div className="product-farmer">by {p.farmer} · {p.origin}</div>
+                  <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 10 }}>⭐ {p.rating} · In stock: {p.stock} {p.unit}</div>
+                  <div className="product-meta">
+                    <div className="product-price">₹{p.price}<span style={{ fontSize: 12, fontWeight: 400 }}>/{p.unit}</span></div>
+                    <button className="btn btn-primary btn-sm" onClick={e => { e.preventDefault(); addToCart(p); }}>+ Cart</button>
+                  </div>
+                </div>
+              </Link>
+            </div>
+          ))}
+        </div>
+      </div>
+      <ChatBot />
+    </div>
+  );
+}
+
+// ─── PRODUCT DETAIL ───────────────────────────────────────────────────────────
+function ProductDetailPage({ id }) {
+  const { addToCart } = useCart();
+  const { cartItems } = useCart();
+  const p = PRODUCTS.find(x => x.id === parseInt(id)) || PRODUCTS[0];
+  return (
+    <div>
+      <PublicNav cartCount={cartItems.length} />
+      <div style={{ padding: "28px 32px", maxWidth: 960, margin: "0 auto" }}>
+        <Link to="/marketplace"><button className="btn btn-secondary btn-sm" style={{ marginBottom: 20 }}>← Back to Marketplace</button></Link>
+        <div className="grid-2" style={{ gap: 32 }}>
+          <div>
+            <div style={{ background: `linear-gradient(135deg, var(--lime), var(--sage))`, borderRadius: 16, height: 280, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 100 }}>
+              {p.icon}
+            </div>
+            <div style={{ marginTop: 16, padding: "16px", background: "white", borderRadius: 12, border: "1px solid var(--border)" }}>
+              <div style={{ fontWeight: 700, marginBottom: 8 }}>🔗 Supply Chain Trace</div>
+              <div className="timeline">
+                {[
+                  { label: "Harvested at farm", meta: `${p.farmer} · ${p.origin}`, done: true },
+                  { label: "Quality tested & certified", meta: "FSSAI Lab · Batch verified", done: true },
+                  { label: "Shipped by distributor", meta: "TransAgri Logistics · Cold chain", done: true },
+                  { label: "Received at retailer", meta: "FreshMart Delhi · Mar 9", done: false },
+                  { label: "Available for purchase", meta: "Est. Mar 11", done: false, pending: true },
+                ].map((t, i) => (
+                  <div className="timeline-item" key={i}>
+                    <div className={`timeline-dot ${t.done ? "done" : t.pending ? "pending" : ""}`} />
+                    <div className="timeline-title">{t.label}</div>
+                    <div className="timeline-meta">{t.meta}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div>
+            <div className="flex gap-2 mb-4" style={{ flexWrap: "wrap" }}>
+              <span className="tag">{p.category}</span>
+              {p.certified && <span className="tag" style={{ background: "#dcfce7", color: "#15803d" }}>🌿 Organic Certified</span>}
+              <span className="tag" style={{ background: "#dbeafe", color: "#1d4ed8" }}>FSSAI</span>
+            </div>
+            <h1 style={{ fontFamily: "Syne", fontSize: 28, fontWeight: 800, marginBottom: 8 }}>{p.name}</h1>
+            <div style={{ color: "var(--muted)", marginBottom: 4 }}>by <strong>{p.farmer}</strong></div>
+            <div style={{ marginBottom: 16 }}>⭐ {p.rating} · Origin: {p.origin}</div>
+            <div style={{ fontSize: 14, color: "var(--muted)", lineHeight: 1.7, marginBottom: 20 }}>{p.desc}</div>
+            <div style={{ fontFamily: "Syne", fontSize: 36, fontWeight: 800, color: "var(--pine)", marginBottom: 20 }}>
+              ₹{p.price}<span style={{ fontSize: 16, fontWeight: 400, color: "var(--muted)" }}>/{p.unit}</span>
+            </div>
+            <div className="flex gap-3 mb-6">
+              <button className="btn btn-primary btn-lg" onClick={() => addToCart(p)}>🛒 Add to Cart</button>
+              <Link to="/consumer/cart"><button className="btn btn-outline btn-lg">Buy Now</button></Link>
+            </div>
+            <div className="card card-pad" style={{ marginTop: 16 }}>
+              <div style={{ fontWeight: 700, marginBottom: 12 }}>📦 Product Details</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: 13 }}>
+                {[["In Stock", `${p.stock} ${p.unit}`], ["Batch No", "BCH-001"], ["Harvest Date", "Feb 28, 2024"], ["Expiry", "Dec 2024"]].map(([k, v]) => (
+                  <div key={k}><span style={{ color: "var(--muted)" }}>{k}:</span> <strong>{v}</strong></div>
+                ))}
+              </div>
+            </div>
+            <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 16 }}>
+              <div className="qr-box" style={{ width: 90, height: 90, fontSize: 40 }}>▦</div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>Scan QR to Verify</div>
+                <div style={{ fontSize: 12, color: "var(--muted)" }}>Scan the QR code on packaging to instantly verify product origin and certifications</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <ChatBot />
+    </div>
+  );
+}
+
+// ─── FARMER DASHBOARD ─────────────────────────────────────────────────────────
+const FARMER_NAV = [
+  { label: "Main", items: [
+    { icon: "🏠", label: "Dashboard", href: "/farmer/dashboard" },
+    { icon: "📦", label: "My Batches", href: "/farmer/batches" },
+    { icon: "➕", label: "Create Batch", href: "/farmer/create-batch" },
+    { icon: "📊", label: "Analytics", href: "/farmer/analytics" },
+    { icon: "▦", label: "QR Codes", href: "/farmer/qr" },
+  ]},
+  { label: "Account", items: [
+    { icon: "❓", label: "Help Center", href: "/help" },
+  ]},
+];
+
+function FarmerLayout({ title, children }) {
+  const { user } = useAuth();
+  const { cartItems } = useCart();
+  return (
+    <div className="app-shell">
+      <Sidebar role="Farmer" nav={FARMER_NAV} user={user || { name: "Ravi Kumar" }} />
+      <div className="main-content with-sidebar">
+        <Topbar title={title} cartCount={cartItems.length} />
+        <div className="page-body">{children}</div>
+      </div>
+      <ChatBot />
+    </div>
+  );
+}
+
+function FarmerDashboard() {
+  return (
+    <FarmerLayout title="Farmer Dashboard">
+      <div className="page-header">
+        <div className="page-title">Welcome back, Ravi 👋</div>
+        <div className="page-sub">Here's what's happening with your farm today</div>
+      </div>
+      <div className="stats-grid">
+        {[
+          { icon: "📦", label: "Active Batches", value: "12", delta: "+3 this week", up: true, bg: "#e8f5e9" },
+          { icon: "💰", label: "Revenue (Mar)", value: "₹1.2L", delta: "+18%", up: true, bg: "#fff3e0" },
+          { icon: "🚚", label: "In Transit", value: "4", delta: "2 arriving today", up: true, bg: "#e3f2fd" },
+          { icon: "⭐", label: "Avg Rating", value: "4.8", delta: "+0.2 vs last month", up: true, bg: "#fce4ec" },
+        ].map(s => (
+          <div className="stat-card" key={s.label}>
+            <div className="stat-icon" style={{ background: s.bg }}>{s.icon}</div>
+            <div className="stat-value">{s.value}</div>
+            <div className="stat-label">{s.label}</div>
+            <div className={`stat-delta ${s.up ? "up" : "down"}`}>{s.delta}</div>
+          </div>
+        ))}
+      </div>
+      <div className="grid-2">
+        <div className="card">
+          <div className="card-header"><span style={{ fontWeight: 700 }}>📊 Monthly Revenue</span></div>
+          <div className="card-body">
+            <BarChart data={[45000, 62000, 38000, 91000, 78000, 110000, 95000]} labels={["Sep","Oct","Nov","Dec","Jan","Feb","Mar"]} />
+          </div>
+        </div>
+        <div className="card">
+          <div className="card-header"><span style={{ fontWeight: 700 }}>📦 Recent Batches</span><Link to="/farmer/batches"><span style={{ fontSize: 13, color: "var(--sage)", cursor: "pointer" }}>View all →</span></Link></div>
+          <div className="card-body" style={{ padding: 0 }}>
+            {BATCHES.slice(0, 3).map(b => (
+              <div key={b.id} style={{ padding: "12px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12 }}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{b.product}</div>
+                  <div style={{ fontSize: 12, color: "var(--muted)" }}>{b.id} · {b.qty}</div>
+                </div>
+                <span className={`pill ${b.status === "delivered" ? "pill-green" : b.status === "in_transit" ? "pill-blue" : b.status === "processing" ? "pill-yellow" : "pill-gray"}`} style={{ marginLeft: "auto" }}>
+                  {b.status.replace("_", " ")}
+                </span>
               </div>
             ))}
           </div>
         </div>
       </div>
+    </FarmerLayout>
+  );
+}
 
-      {/* Right – form */}
-      <div style={{
-        width:440,display:"flex",alignItems:"center",justifyContent:"center",
-        padding:"40px 44px",
-        background:"rgba(255,255,255,.06)",backdropFilter:"blur(14px)",
-        borderLeft:"1px solid rgba(255,255,255,.1)",
-      }}>
-        <div className="si" style={{width:"100%"}}>
-          <Card style={{padding:34,borderRadius:20,border:"none",boxShadow:"0 20px 72px rgba(0,0,0,.24)"}}>
-            <div style={{marginBottom:26}}>
-              <h2 style={{fontSize:21,fontWeight:700,color:C.ink,letterSpacing:"-.04em"}}>Welcome back</h2>
-              <p style={{fontSize:13,color:C.slate,marginTop:3}}>Sign in to your FarmChainX account</p>
-            </div>
-            <div style={{display:"flex",flexDirection:"column",gap:15}}>
-              <Sel label="Sign in as" value={role} onChange={e=>setRole(e.target.value)} opts={["Farmer","Distributor","Admin"]}/>
-              <Field label="Email" type="email" icon="✉️" placeholder="you@farmchainx.io" value={email} onChange={e=>setEmail(e.target.value)}/>
-              <Field label="Password" type="password" icon="🔒" placeholder="Password" value={pass} onChange={e=>setPass(e.target.value)}/>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <label style={{display:"flex",alignItems:"center",gap:7,cursor:"pointer",fontSize:13,color:C.slate}}>
-                  <input type="checkbox" checked={rem} onChange={e=>setRem(e.target.checked)} style={{accentColor:C.fern,width:14,height:14}}/>
-                  Remember me
-                </label>
-                <button style={{background:"none",border:"none",color:C.moss,fontSize:13,fontWeight:600,cursor:"pointer"}}>Forgot password?</button>
-              </div>
-              <Btn sz="lg" onClick={()=>onLogin(role)} style={{width:"100%",justifyContent:"center",marginTop:2}}>Sign In →</Btn>
-            </div>
-            <div style={{
-              display:"flex",alignItems:"center",gap:8,
-              marginTop:22,padding:"11px 14px",borderRadius:10,
-              background:C.dew,border:`1px solid ${C.mist}`,
-            }}>
-              <span>🔒</span>
-              <span style={{fontSize:12,color:C.moss,fontWeight:500}}>Secured by blockchain-verified traceability</span>
-            </div>
-          </Card>
+function FarmerBatches() {
+  return (
+    <FarmerLayout title="My Batches">
+      <div className="page-header flex items-center justify-between">
+        <div><div className="page-title">My Batches</div><div className="page-sub">Track all your product batches</div></div>
+        <Link to="/farmer/create-batch"><button className="btn btn-primary">+ New Batch</button></Link>
+      </div>
+      <div className="card">
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Batch ID</th><th>Product</th><th>Quantity</th><th>Date</th><th>Revenue</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>
+              {BATCHES.map(b => (
+                <tr key={b.id}>
+                  <td><strong>{b.id}</strong></td>
+                  <td>{b.product}</td>
+                  <td>{b.qty}</td>
+                  <td>{b.date}</td>
+                  <td>₹{b.price.toLocaleString()}</td>
+                  <td><span className={`pill ${b.status === "delivered" ? "pill-green" : b.status === "in_transit" ? "pill-blue" : b.status === "processing" ? "pill-yellow" : "pill-gray"}`}>{b.status.replace("_", " ")}</span></td>
+                  <td><button className="btn btn-secondary btn-sm">View</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
+    </FarmerLayout>
+  );
+}
+
+function FarmerCreateBatch() {
+  return (
+    <FarmerLayout title="Create New Batch">
+      <div style={{ maxWidth: 640 }}>
+        <div className="page-header"><div className="page-title">Create New Batch</div><div className="page-sub">Log a new product batch to the supply chain</div></div>
+        <div className="card card-pad">
+          <div className="grid-2">
+            <div className="form-group"><label className="form-label">Product Name</label><input className="form-input" placeholder="e.g. Organic Basmati Rice" /></div>
+            <div className="form-group"><label className="form-label">Category</label><select className="form-input form-select"><option>Grains</option><option>Fruits</option><option>Vegetables</option><option>Spices</option><option>Dairy</option></select></div>
+            <div className="form-group"><label className="form-label">Quantity (kg)</label><input className="form-input" type="number" placeholder="500" /></div>
+            <div className="form-group"><label className="form-label">Price per kg (₹)</label><input className="form-input" type="number" placeholder="85" /></div>
+            <div className="form-group"><label className="form-label">Harvest Date</label><input className="form-input" type="date" /></div>
+            <div className="form-group"><label className="form-label">Expiry Date</label><input className="form-input" type="date" /></div>
+          </div>
+          <div className="form-group"><label className="form-label">Farm Location</label><input className="form-input" placeholder="Village, District, State" /></div>
+          <div className="form-group"><label className="form-label">Description</label><textarea className="form-input" placeholder="Describe growing methods, soil type, any certifications..." /></div>
+          <div className="form-group">
+            <label className="form-label">Organic Certified?</label>
+            <div className="flex gap-3 mt-2">
+              <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}><input type="radio" name="cert" defaultChecked /> Yes, FSSAI Certified</label>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}><input type="radio" name="cert" /> No</label>
+            </div>
+          </div>
+          <div className="flex gap-3 mt-4">
+            <button className="btn btn-primary">Submit Batch</button>
+            <button className="btn btn-secondary">Save Draft</button>
+          </div>
+        </div>
+      </div>
+    </FarmerLayout>
+  );
+}
+
+function FarmerAnalytics() {
+  return (
+    <FarmerLayout title="Sales Analytics">
+      <div className="page-header"><div className="page-title">Sales Analytics</div><div className="page-sub">Track performance across products and seasons</div></div>
+      <div className="stats-grid">
+        {[["₹6.8L", "Total Revenue", "FY 2024"], ["48 MT", "Total Volume", "All products"], ["94%", "Delivery Rate", "On-time"], ["4.8⭐", "Avg Rating", "Consumer feedback"]].map(([v, l, s]) => (
+          <div className="stat-card" key={l}><div className="stat-value">{v}</div><div className="stat-label">{l}</div><div className="text-muted">{s}</div></div>
+        ))}
+      </div>
+      <div className="grid-2 mb-6">
+        <div className="card"><div className="card-header"><span style={{ fontWeight: 700 }}>Revenue Trend (Monthly)</span></div><div className="card-body"><BarChart data={[42000, 58000, 71000, 63000, 88000, 95000, 110000, 102000, 118000, 125000, 108000, 142000]} labels={["A","M","J","J","A","S","O","N","D","J","F","M"]} /></div></div>
+        <div className="card"><div className="card-header"><span style={{ fontWeight: 700 }}>Product Mix</span></div>
+          <div className="card-body">
+            {[["🌾 Basmati Rice", 42], ["🌿 Turmeric", 28], ["🌱 Ragi", 18], ["🥬 Spinach", 12]].map(([n, pct]) => (
+              <div key={n} style={{ marginBottom: 14 }}>
+                <div className="flex justify-between mb-4" style={{ marginBottom: 4 }}><span style={{ fontSize: 14 }}>{n}</span><span style={{ fontWeight: 700 }}>{pct}%</span></div>
+                <div className="inventory-bar"><div className="inventory-fill" style={{ width: `${pct}%` }} /></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </FarmerLayout>
+  );
+}
+
+function FarmerQR() {
+  return (
+    <FarmerLayout title="QR Code Generator">
+      <div className="page-header"><div className="page-title">QR Code Generator</div><div className="page-sub">Generate QR codes for product traceability</div></div>
+      <div className="grid-2">
+        <div className="card card-pad">
+          <div className="section-title">Generate QR Code</div>
+          <div className="form-group"><label className="form-label">Select Batch</label><select className="form-input form-select">{BATCHES.map(b => <option key={b.id}>{b.id} – {b.product}</option>)}</select></div>
+          <div className="form-group"><label className="form-label">QR Content</label><select className="form-input form-select"><option>Full Trace URL</option><option>Batch Summary</option><option>Farm Certificate</option></select></div>
+          <button className="btn btn-primary w-full">Generate QR Code</button>
+        </div>
+        <div className="card card-pad" style={{ textAlign: "center" }}>
+          <div className="section-title">Preview</div>
+          <div style={{ display: "flex", justifyContent: "center", margin: "24px 0" }}>
+            <div className="qr-box">▦</div>
+          </div>
+          <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16 }}>BCH-001 · Organic Basmati Rice</div>
+          <div className="flex gap-2" style={{ justifyContent: "center" }}>
+            <button className="btn btn-primary btn-sm">📥 Download PNG</button>
+            <button className="btn btn-secondary btn-sm">🖨️ Print</button>
+          </div>
+        </div>
+      </div>
+    </FarmerLayout>
+  );
+}
+
+// ─── DISTRIBUTOR ──────────────────────────────────────────────────────────────
+const DIST_NAV = [
+  { label: "Main", items: [
+    { icon: "🏠", label: "Dashboard", href: "/distributor/dashboard" },
+    { icon: "🚚", label: "Shipments", href: "/distributor/shipments" },
+    { icon: "📍", label: "Tracking", href: "/distributor/tracking" },
+  ]},
+  { label: "Account", items: [
+    { icon: "❓", label: "Help", href: "/help" },
+  ]},
+];
+
+function DistLayout({ title, children }) {
+  const { user } = useAuth();
+  return (
+    <div className="app-shell">
+      <Sidebar role="Distributor" nav={DIST_NAV} user={user || { name: "Priya Sharma" }} />
+      <div className="main-content with-sidebar">
+        <Topbar title={title} />
+        <div className="page-body">{children}</div>
+      </div>
+      <ChatBot />
     </div>
   );
 }
 
-/* ── FARMER DASHBOARD ── */
-function FarmerDash({ setPage, setBatch }) {
-  const trend = [72,78,75,82,80,85,83,88,86,91,89,94];
+function DistributorDashboard() {
   return (
-    <div>
-      <TopBar
-        title="Farmer Dashboard"
-        sub="Good morning, John Kamau 👋"
-        actions={[
-          <Btn key="qr" v="ghost" icon="📷" onClick={()=>setPage("qr-scan")}>Scan QR</Btn>,
-          <Btn key="nb" icon="➕" onClick={()=>setPage("farmer-batches")}>New Batch</Btn>,
-        ]}
-      />
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:20}}>
-        <StatCard icon="📦" label="Total Batches"     value="47"  chg={8}  color={C.fern}  cls="d1"/>
-        <StatCard icon="🌱" label="Active Batches"    value="12"  chg={4}  color={C.sky}   cls="d2"/>
-        <StatCard icon="⭐" label="Avg Quality Score" value="91%" chg={3}  color={C.amber} cls="d3"/>
-        <StatCard icon="⏳" label="Pending Transfers" value="4"   chg={-1} color={C.grape} cls="d4"/>
+    <DistLayout title="Distributor Dashboard">
+      <div className="page-header"><div className="page-title">Distributor Dashboard</div><div className="page-sub">Manage shipments across the supply chain</div></div>
+      <div className="stats-grid">
+        {[["🚚", "Active Shipments", "8", "#e3f2fd"], ["📦", "Batches Received", "23", "#e8f5e9"], ["✅", "Delivered Today", "5", "#f3e5f5"], ["⏱️", "Avg Transit Days", "3.2", "#fff3e0"]].map(([i, l, v, bg]) => (
+          <div className="stat-card" key={l}><div className="stat-icon" style={{ background: bg }}>{i}</div><div className="stat-value">{v}</div><div className="stat-label">{l}</div></div>
+        ))}
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 300px",gap:16,alignItems:"start"}}>
-        <Card cls="fu d3" style={{padding:24}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:18}}>
-            <div>
-              <h2 style={{fontSize:16,fontWeight:700,color:C.ink}}>Recent Batches</h2>
-              <p style={{fontSize:12,color:C.slate,marginTop:2}}>Click a row for full detail</p>
-            </div>
-            <Btn v="ghost" sz="sm" onClick={()=>setPage("farmer-batches")}>View all →</Btn>
-          </div>
-          <Table
-            cols={[
-              {k:"id",  l:"Batch ID", r:v=><span style={{fontFamily:"monospace",fontSize:12,fontWeight:600,color:C.moss}}>{v}</span>},
-              {k:"crop",l:"Crop"},
-              {k:"status",l:"Status",r:v=><Badge status={v}/>},
-              {k:"score",l:"Quality",r:v=>(
-                <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  <div style={{flex:1,height:4,background:C.pearl,borderRadius:4,minWidth:56}}>
-                    <div style={{height:"100%",borderRadius:4,width:`${v}%`,background:v>=85?C.fern:v>=65?C.amber:C.rose}}/>
+      <div className="grid-2">
+        <div className="card"><div className="card-header"><span style={{ fontWeight: 700 }}>🚚 Active Shipments</span><Link to="/distributor/shipments"><span style={{ fontSize: 13, color: "var(--sage)" }}>All →</span></Link></div>
+          <div className="card-body" style={{ padding: 0 }}>
+            {SHIPMENTS.map(s => (
+              <div key={s.id} style={{ padding: "12px 20px", borderBottom: "1px solid var(--border)" }}>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>{s.id}</div>
+                    <div style={{ fontSize: 12, color: "var(--muted)" }}>{s.from} → {s.to} · {s.weight}</div>
                   </div>
-                  <span style={{fontSize:12,fontWeight:600,color:C.charcoal,minWidth:30}}>{v}%</span>
+                  <span className={`pill ${s.status === "delivered" ? "pill-green" : s.status === "in_transit" ? "pill-blue" : "pill-gray"}`}>{s.status.replace("_", " ")}</span>
                 </div>
-              )},
-            ]}
-            rows={BATCHES}
-            onRow={row=>{setBatch(row);setPage("batch-detail");}}
-          />
-        </Card>
-        <Card cls="fu d4" style={{padding:24}}>
-          <div style={{marginBottom:14}}>
-            <h2 style={{fontSize:16,fontWeight:700,color:C.ink}}>Quality Trend</h2>
-            <p style={{fontSize:12,color:C.slate,marginTop:2}}>Last 12 batches</p>
-          </div>
-          <div style={{marginBottom:12}}>
-            <div style={{fontSize:30,fontWeight:700,color:C.ink,letterSpacing:"-1px"}}>94%</div>
-            <div style={{fontSize:12,color:C.moss,fontWeight:500,marginTop:2}}>↑ 3.2% vs last month</div>
-          </div>
-          <Spark data={trend} color={C.fern} h={70}/>
-          <div style={{display:"flex",justifyContent:"space-between",marginTop:8}}>
-            {["Feb 1","Feb 15","Mar 4"].map(d=><span key={d} style={{fontSize:10,color:C.fog}}>{d}</span>)}
-          </div>
-        </Card>
-      </div>
-    </div>
-  );
-}
-
-/* ── FARMER BATCHES ── */
-function FarmerBatches({ setPage, setBatch }) {
-  return (
-    <div>
-      <TopBar title="My Batches" sub="Manage and track all your crop batches" actions={[<Btn key="nb" icon="➕">Create New Batch</Btn>]}/>
-      <Card cls="fu" style={{padding:24}}>
-        <Table
-          cols={[
-            {k:"id",  l:"Batch ID",     r:v=><span style={{fontFamily:"monospace",fontSize:12,fontWeight:600,color:C.moss}}>{v}</span>},
-            {k:"crop",l:"Crop"},
-            {k:"qty", l:"Quantity"},
-            {k:"location",l:"Location"},
-            {k:"date",l:"Harvest Date"},
-            {k:"status",l:"Status",r:v=><Badge status={v}/>},
-            {k:"score",l:"AI Score",r:v=><Ring score={v} size={38}/>},
-            {k:"id",l:"Action",r:(v,row)=>(
-              <Btn sz="xs" v="ghost" onClick={e=>{e.stopPropagation();setBatch(row);setPage("batch-detail");}}>View →</Btn>
-            )},
-          ]}
-          rows={BATCHES}
-          onRow={row=>{setBatch(row);setPage("batch-detail");}}
-        />
-      </Card>
-    </div>
-  );
-}
-
-/* ── BATCH DETAIL ── */
-function BatchDetail({ batch, setPage }) {
-  const b = batch || BATCHES[1];
-  const grade = b.score>=85?"Premium":b.score>=65?"Standard":"Below Standard";
-  const stages = [
-    {label:"Farm",        icon:"🌾",done:true,  date:b.date},
-    {label:"Processing",  icon:"⚙️",done:true,  date:"T+2 days"},
-    {label:"Storage",     icon:"🏭",done:!["Harvested"].includes(b.status),date:"T+4 days"},
-    {label:"Distributor", icon:"🚚",done:["In Transit","Delivered"].includes(b.status),date:"T+8 days"},
-    {label:"Retailer",    icon:"🛒",done:b.status==="Delivered",date:"T+10 days"},
-  ];
-  return (
-    <div>
-      <div style={{marginBottom:18}}>
-        <button onClick={()=>setPage("farmer-batches")} style={{background:"none",border:"none",color:C.moss,fontSize:13,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>← Back to Batches</button>
-      </div>
-      <TopBar title={b.crop} sub={`Batch ${b.id} · Harvested ${b.date}`} actions={[
-        <Btn key="c" v="secondary" icon="🛒" onClick={()=>setPage("consumer")}>Consumer View</Btn>,
-        <Btn key="q" v="ghost" icon="📷" onClick={()=>setPage("qr-scan")}>Scan</Btn>,
-      ]}/>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 268px",gap:16,alignItems:"start"}}>
-        {/* Info */}
-        <Card cls="fu" style={{padding:24}}>
-          <h3 style={{fontSize:11,fontWeight:700,color:C.fog,letterSpacing:".07em",textTransform:"uppercase",marginBottom:18}}>Batch Information</h3>
-          {[["🌱","Crop",b.crop],["🌿","Variety",b.variety],["⚖️","Quantity",b.qty],["📍","Location",b.location],["📅","Harvest Date",b.date],["👤","Farmer",b.farmer],["📊","Status",null]].map(([ic,k,val])=>(
-            <div key={k} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:`1px solid ${C.pearl}`}}>
-              <span style={{fontSize:13,color:C.slate,display:"flex",alignItems:"center",gap:7}}><span>{ic}</span>{k}</span>
-              {k==="Status"?<Badge status={b.status}/>:<span style={{fontSize:13,fontWeight:500,color:C.ink}}>{val}</span>}
-            </div>
-          ))}
-        </Card>
-        {/* AI Quality */}
-        <Card cls="fu d1" style={{padding:24}}>
-          <h3 style={{fontSize:11,fontWeight:700,color:C.fog,letterSpacing:".07em",textTransform:"uppercase",marginBottom:18}}>AI Quality Analysis</h3>
-          <div style={{display:"flex",alignItems:"center",gap:18,marginBottom:22}}>
-            <Ring score={b.score} size={110}/>
-            <div>
-              <Badge status={grade}/>
-              <div style={{fontSize:26,fontWeight:700,color:C.ink,letterSpacing:"-1px",marginTop:10}}>{b.score}/100</div>
-              <div style={{fontSize:12,color:C.slate}}>AI Confidence: High</div>
-            </div>
-          </div>
-          {[["Moisture Level","12.4%",96],["Nutrient Density","High",89],["Visual Quality","Excellent",b.score],["Pesticide Residue","None",100]].map(([lbl,val,pct])=>(
-            <div key={lbl} style={{marginBottom:11}}>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-                <span style={{fontSize:12,color:C.slate}}>{lbl}</span>
-                <span style={{fontSize:12,fontWeight:600,color:C.charcoal}}>{val}</span>
               </div>
-              <div style={{height:4,background:C.pearl,borderRadius:4,overflow:"hidden"}}>
-                <div style={{height:"100%",borderRadius:4,width:`${pct}%`,background:pct>=85?C.fern:pct>=65?C.amber:C.rose}}/>
+            ))}
+          </div>
+        </div>
+        <div className="card"><div className="card-header"><span style={{ fontWeight: 700 }}>📊 Shipment Volume</span></div><div className="card-body"><BarChart data={[12, 18, 14, 22, 19, 28, 24]} labels={["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]} /></div></div>
+      </div>
+    </DistLayout>
+  );
+}
+
+function DistributorShipments() {
+  return (
+    <DistLayout title="Shipment Management">
+      <div className="page-header flex items-center justify-between">
+        <div><div className="page-title">Shipments</div><div className="page-sub">Manage all logistics operations</div></div>
+        <button className="btn btn-primary">+ New Shipment</button>
+      </div>
+      <div className="card">
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Shipment ID</th><th>Batch</th><th>Route</th><th>Weight</th><th>ETA</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>
+              {SHIPMENTS.map(s => (
+                <tr key={s.id}>
+                  <td><strong>{s.id}</strong></td>
+                  <td>{s.batch}</td>
+                  <td>{s.from} → {s.to}</td>
+                  <td>{s.weight}</td>
+                  <td>{s.eta}</td>
+                  <td><span className={`pill ${s.status === "delivered" ? "pill-green" : s.status === "in_transit" ? "pill-blue" : "pill-gray"}`}>{s.status.replace("_", " ")}</span></td>
+                  <td className="flex gap-2"><button className="btn btn-secondary btn-sm">Track</button><button className="btn btn-secondary btn-sm">Edit</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </DistLayout>
+  );
+}
+
+function DistributorTracking() {
+  return (
+    <DistLayout title="Shipment Tracking">
+      <div className="page-header"><div className="page-title">Live Tracking</div><div className="page-sub">Real-time shipment positions</div></div>
+      <div className="grid-2">
+        <div>
+          {SHIPMENTS.map(s => (
+            <div className="card card-pad mb-4" key={s.id}>
+              <div className="flex justify-between items-center mb-4">
+                <div><div style={{ fontWeight: 700 }}>{s.id}</div><div style={{ fontSize: 13, color: "var(--muted)" }}>Batch {s.batch}</div></div>
+                <span className={`pill ${s.status === "delivered" ? "pill-green" : s.status === "in_transit" ? "pill-blue" : "pill-gray"}`}>{s.status.replace("_", " ")}</span>
+              </div>
+              <div className="timeline" style={{ marginLeft: 8 }}>
+                <div className="timeline-item"><div className="timeline-dot done" /><div className="timeline-title">Picked up from {s.from}</div><div className="timeline-meta">Mar 5, 6:00 AM</div></div>
+                <div className="timeline-item"><div className={`timeline-dot ${s.status !== "pending" ? "done" : "pending"}`} /><div className="timeline-title">In Transit</div><div className="timeline-meta">ETA: {s.eta}</div></div>
+                <div className="timeline-item"><div className={`timeline-dot ${s.status === "delivered" ? "done" : "pending"}`} /><div className="timeline-title">Delivered at {s.to}</div><div className="timeline-meta">{s.status === "delivered" ? "Completed" : "Pending"}</div></div>
               </div>
             </div>
           ))}
-        </Card>
-        {/* QR */}
-        <Card cls="fu d2" style={{padding:24}}>
-          <h3 style={{fontSize:11,fontWeight:700,color:C.fog,letterSpacing:".07em",textTransform:"uppercase",marginBottom:18}}>QR Code</h3>
-          <div style={{display:"flex",justifyContent:"center",marginBottom:14}}>
-            <div style={{padding:14,background:C.white,border:`2px solid ${C.mist}`,borderRadius:12,boxShadow:`0 4px 14px rgba(26,58,42,.09)`}}>
-              <svg width={116} height={116} viewBox="0 0 37 37">
-                {/* TL finder */}
-                <rect x="1" y="1" width="7" height="7" rx="1" fill={C.forest}/>
-                <rect x="2" y="2" width="5" height="5" rx=".5" fill={C.white}/>
-                <rect x="3" y="3" width="3" height="3" fill={C.forest}/>
-                {/* TR finder */}
-                <rect x="29" y="1" width="7" height="7" rx="1" fill={C.forest}/>
-                <rect x="30" y="2" width="5" height="5" rx=".5" fill={C.white}/>
-                <rect x="31" y="3" width="3" height="3" fill={C.forest}/>
-                {/* BL finder */}
-                <rect x="1" y="29" width="7" height="7" rx="1" fill={C.forest}/>
-                <rect x="2" y="30" width="5" height="5" rx=".5" fill={C.white}/>
-                <rect x="3" y="31" width="3" height="3" fill={C.forest}/>
-                {/* Data */}
-                {[[10,1],[12,1],[15,1],[18,2],[21,1],[24,1],[26,1],[10,3],[14,3],[17,3],[20,3],[24,3],[10,5],[13,5],[16,5],[20,5],[24,5],[26,5],[10,7],[13,7],[16,7],[19,7],[22,7],[25,7],[1,10],[4,10],[7,10],[10,10],[13,10],[16,10],[19,10],[22,10],[25,10],[28,10],[31,10],[34,10],[2,12],[5,12],[8,12],[11,12],[14,12],[17,12],[20,12],[23,12],[26,12],[29,12],[32,12],[35,12],[1,14],[4,14],[7,14],[10,14],[14,14],[17,14],[20,14],[24,14],[27,14],[30,14],[34,14],[2,16],[6,16],[9,16],[12,16],[15,16],[19,16],[22,16],[25,16],[28,16],[32,16],[35,16],[1,18],[4,18],[8,18],[11,18],[14,18],[18,18],[21,18],[24,18],[27,18],[31,18],[34,18],[2,20],[5,20],[8,20],[12,20],[15,20],[18,20],[22,20],[25,20],[29,20],[32,20],[1,22],[5,22],[9,22],[12,22],[16,22],[19,22],[23,22],[26,22],[30,22],[33,22],[2,24],[6,24],[10,24],[13,24],[17,24],[20,24],[24,24],[27,24],[31,24],[9,26],[12,26],[16,26],[19,26],[22,26],[26,26],[29,26],[33,26],[9,28],[13,28],[17,28],[20,28],[24,28],[27,28],[31,28],[9,30],[12,30],[15,30],[19,30],[22,30],[26,30],[29,30],[33,30],[9,32],[13,32],[17,32],[21,32],[24,32],[28,32],[31,32],[35,32],[9,34],[12,34],[16,34],[19,34],[23,34],[26,34],[30,34],[33,34]].map(([x,y],i)=>(
-                  <rect key={i} x={x} y={y} width="1.5" height="1.5" rx=".2" fill={C.forest}/>
-                ))}
-              </svg>
+        </div>
+        <div className="card" style={{ height: "fit-content" }}>
+          <div className="card-header"><span style={{ fontWeight: 700 }}>🗺️ Route Map</span></div>
+          <div style={{ background: "linear-gradient(135deg, #e8f5e9, #c8e6c9)", height: 320, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12 }}>
+            <div style={{ fontSize: 48 }}>🗺️</div>
+            <div style={{ fontWeight: 600, color: "var(--forest)" }}>Interactive Map</div>
+            <div style={{ fontSize: 13, color: "var(--muted)" }}>Live GPS tracking active</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              {["🚚 SHP-101", "🚚 SHP-102"].map(l => <span key={l} className="pill pill-green">{l}</span>)}
             </div>
           </div>
-          <div style={{textAlign:"center",marginBottom:14}}>
-            <div style={{fontSize:10,fontFamily:"monospace",color:C.slate,fontWeight:600}}>{b.id}</div>
-          </div>
-          <div style={{display:"flex",gap:7}}>
-            <Btn v="secondary" sz="sm" style={{flex:1,justifyContent:"center"}} icon="📥">Download</Btn>
-            <Btn v="ghost" sz="sm" style={{flex:1,justifyContent:"center"}} icon="🖨️">Print</Btn>
-          </div>
-        </Card>
+        </div>
       </div>
+    </DistLayout>
+  );
+}
 
-      {/* Timeline */}
-      <Card cls="fu d3" style={{padding:26,marginTop:16}}>
-        <h3 style={{fontSize:11,fontWeight:700,color:C.fog,letterSpacing:".07em",textTransform:"uppercase",marginBottom:24}}>Supply Chain Timeline</h3>
-        <div style={{display:"flex",alignItems:"center",overflowX:"auto",paddingBottom:6}}>
-          {stages.map((s,i)=>(
-            <div key={s.label} style={{display:"flex",alignItems:"center",flex:i<stages.length-1?1:0}}>
-              <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:7,minWidth:84}}>
-                <div style={{
-                  width:50,height:50,borderRadius:"50%",
-                  background:s.done?`linear-gradient(135deg,${C.moss},${C.fern})`:C.pearl,
-                  border:s.done?"none":`2px dashed ${C.silver}`,
-                  display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,
-                  boxShadow:s.done?`0 4px 14px rgba(61,122,82,.28)`:"none",
-                  animation:s.done?"pulseGlow 2.5s infinite":"none",
-                }}>{s.done?"✓":s.icon}</div>
-                <div style={{fontSize:12,fontWeight:s.done?600:400,color:s.done?C.pine:C.fog,textAlign:"center"}}>{s.label}</div>
-                <div style={{fontSize:10,color:C.fog}}>{s.date}</div>
+// ─── RETAILER ─────────────────────────────────────────────────────────────────
+const RETAIL_NAV = [
+  { label: "Main", items: [
+    { icon: "🏠", label: "Dashboard", href: "/retailer/dashboard" },
+    { icon: "📋", label: "Inventory", href: "/retailer/inventory" },
+    { icon: "🏷️", label: "Product Listings", href: "/retailer/listings" },
+    { icon: "📬", label: "Orders", href: "/retailer/orders" },
+  ]},
+  { label: "Account", items: [{ icon: "❓", label: "Help", href: "/help" }] },
+];
+
+function RetailLayout({ title, children }) {
+  const { user } = useAuth();
+  return (
+    <div className="app-shell">
+      <Sidebar role="Retailer" nav={RETAIL_NAV} user={user || { name: "Amit Patel" }} />
+      <div className="main-content with-sidebar">
+        <Topbar title={title} />
+        <div className="page-body">{children}</div>
+      </div>
+      <ChatBot />
+    </div>
+  );
+}
+
+function RetailerDashboard() {
+  return (
+    <RetailLayout title="Retailer Dashboard">
+      <div className="page-header"><div className="page-title">Retailer Dashboard</div><div className="page-sub">Manage your store's supply chain presence</div></div>
+      <div className="stats-grid">
+        {[["🛍️", "Orders Today", "47", "#e8f5e9"], ["💰", "Revenue (Mar)", "₹3.8L", "#fff3e0"], ["📦", "Low Stock Items", "6", "#fee2e2"], ["⭐", "Store Rating", "4.6", "#fce4ec"]].map(([i, l, v, bg]) => (
+          <div className="stat-card" key={l}><div className="stat-icon" style={{ background: bg }}>{i}</div><div className="stat-value">{v}</div><div className="stat-label">{l}</div></div>
+        ))}
+      </div>
+      <div className="grid-2">
+        <div className="card"><div className="card-header"><span style={{ fontWeight: 700 }}>📊 Sales This Week</span></div><div className="card-body"><BarChart data={[38000, 45000, 41000, 62000, 58000, 71000, 55000]} labels={["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]} /></div></div>
+        <div className="card"><div className="card-header"><span style={{ fontWeight: 700 }}>⚠️ Low Stock Alerts</span></div>
+          <div className="card-body" style={{ padding: 0 }}>
+            {PRODUCTS.filter(p => p.stock < 150).map(p => (
+              <div key={p.id} style={{ padding: "10px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12 }}>
+                <span style={{ fontSize: 22 }}>{p.icon}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{p.name}</div>
+                  <div style={{ fontSize: 12, color: p.stock < 100 ? "#dc2626" : "var(--muted)" }}>Stock: {p.stock} {p.unit}</div>
+                  <div className="inventory-bar"><div className="inventory-fill" style={{ width: `${(p.stock / 200) * 100}%`, background: p.stock < 100 ? "#ef4444" : undefined }} /></div>
+                </div>
+                <button className="btn btn-primary btn-sm">Reorder</button>
               </div>
-              {i<stages.length-1&&(
-                <div style={{flex:1,height:3,marginBottom:38,background:s.done?C.mint:C.pearl,borderRadius:2,minWidth:24}}/>
-              )}
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </Card>
-    </div>
+      </div>
+    </RetailLayout>
   );
 }
 
-/* ── DISTRIBUTOR DASHBOARD ── */
-function DistDash() {
+function RetailerInventory() {
   return (
-    <div>
-      <TopBar title="Distributor Dashboard" sub="Logistics and shipment overview" actions={[<Btn key="ns" icon="➕">New Shipment</Btn>]}/>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:20}}>
-        <StatCard icon="📥" label="Received Batches"      value="28" chg={6}  color={C.fern}/>
-        <StatCard icon="🚚" label="In-Transit Shipments"  value="7"  chg={-2} color={C.amber} cls="d1"/>
-        <StatCard icon="✅" label="Delivered Batches"     value="19" chg={12} color={C.sky}   cls="d2"/>
+    <RetailLayout title="Inventory">
+      <div className="page-header flex items-center justify-between">
+        <div><div className="page-title">Inventory</div><div className="page-sub">Manage your product stock levels</div></div>
+        <div className="flex gap-2"><button className="btn btn-secondary">📥 Import</button><button className="btn btn-primary">+ Add Item</button></div>
       </div>
-      <Card cls="fu d2" style={{padding:24}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:18}}>
-          <div>
-            <h2 style={{fontSize:16,fontWeight:700,color:C.ink}}>Active Shipments</h2>
-            <p style={{fontSize:12,color:C.slate,marginTop:2}}>Real-time supply chain tracking</p>
-          </div>
-          <Btn v="ghost" sz="sm">Filter</Btn>
+      <div className="card">
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Product</th><th>Category</th><th>Stock</th><th>Level</th><th>Price</th><th>Origin</th><th>Status</th></tr></thead>
+            <tbody>
+              {PRODUCTS.map(p => (
+                <tr key={p.id}>
+                  <td><div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ fontSize: 20 }}>{p.icon}</span><strong>{p.name}</strong></div></td>
+                  <td>{p.category}</td>
+                  <td>{p.stock} {p.unit}</td>
+                  <td style={{ width: 120 }}><div className="inventory-bar"><div className="inventory-fill" style={{ width: `${Math.min(100, (p.stock / 500) * 100)}%`, background: p.stock < 100 ? "#ef4444" : undefined }} /></div></td>
+                  <td>₹{p.price}/{p.unit}</td>
+                  <td>{p.origin}</td>
+                  <td><span className={`pill ${p.stock > 200 ? "pill-green" : p.stock > 100 ? "pill-yellow" : "pill-red"}`}>{p.stock > 200 ? "Good" : p.stock > 100 ? "Low" : "Critical"}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-        <Table
-          cols={[
-            {k:"id",  l:"Batch ID",r:v=><span style={{fontFamily:"monospace",fontSize:12,fontWeight:600,color:C.moss}}>{v}</span>},
-            {k:"crop",l:"Product"},
-            {k:"from",l:"From"},
-            {k:"to",  l:"To"},
-            {k:"eta", l:"ETA"},
-            {k:"status",l:"Status",r:v=><Badge status={v}/>},
-            {k:"id",l:"Action",r:()=><Btn sz="xs" v="secondary">Update</Btn>},
-          ]}
-          rows={SHIPMENTS}
-        />
-      </Card>
-    </div>
+      </div>
+    </RetailLayout>
   );
 }
 
-/* ── ADMIN DASHBOARD ── */
-function AdminDash() {
-  const [users, setUsers] = useState(USERS_DATA);
-  const toggle = email => setUsers(us=>us.map(u=>u.email===email?{...u,status:u.status==="Active"?"Inactive":"Active"}:u));
+function RetailerListings() {
   return (
-    <div>
-      <TopBar title="Admin Dashboard" sub="System overview and user management" actions={[<Btn key="au" icon="➕">Add User</Btn>]}/>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:20}}>
-        <StatCard icon="👥" label="Total Users"    value="124"   chg={9}  color={C.fern}/>
-        <StatCard icon="📦" label="Total Batches"  value="1,847" chg={14} color={C.sky}   cls="d1"/>
-        <StatCard icon="⚡" label="Active Sessions" value="38"   chg={4}  color={C.amber} cls="d2"/>
+    <RetailLayout title="Product Listings">
+      <div className="page-header flex items-center justify-between">
+        <div><div className="page-title">Product Listings</div><div className="page-sub">Manage what appears in the marketplace</div></div>
+        <button className="btn btn-primary">+ New Listing</button>
       </div>
-      <Card cls="fu d2" style={{padding:24}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:18}}>
-          <div>
-            <h2 style={{fontSize:16,fontWeight:700,color:C.ink}}>User Management</h2>
-            <p style={{fontSize:12,color:C.slate,marginTop:2}}>Click to activate/deactivate accounts</p>
-          </div>
-          <Btn v="ghost" sz="sm">Export</Btn>
-        </div>
-        <Table
-          cols={[
-            {k:"name",l:"Name",r:(v)=>(
-              <div style={{display:"flex",alignItems:"center",gap:10}}>
-                <div style={{width:30,height:30,borderRadius:"50%",background:`linear-gradient(135deg,${C.sage},${C.fern})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:C.white,flexShrink:0}}>{v[0]}</div>
-                <span style={{fontWeight:500}}>{v}</span>
+      <div className="products-grid">
+        {PRODUCTS.slice(0, 6).map(p => (
+          <div key={p.id} className="product-card" style={{ cursor: "default" }}>
+            <div className="product-img">{p.icon}</div>
+            <div className="product-info">
+              <div className="product-name">{p.name}</div>
+              <div className="product-farmer">{p.origin}</div>
+              <div className="product-meta">
+                <div className="product-price">₹{p.price}</div>
+                <span className="pill pill-green" style={{ fontSize: 11 }}>Listed ✓</span>
               </div>
-            )},
-            {k:"email",l:"Email",r:v=><span style={{color:C.slate,fontSize:13}}>{v}</span>},
-            {k:"role",l:"Role",r:v=><span style={{fontSize:12,fontWeight:600,color:C.pine,background:C.dew,padding:"2px 8px",borderRadius:6}}>{v}</span>},
-            {k:"joined",l:"Joined"},
-            {k:"status",l:"Status",r:v=><Badge status={v}/>},
-            {k:"email",l:"Action",r:(v,row)=>(
-              <Btn sz="xs" v={row.status==="Active"?"danger":"secondary"} onClick={()=>toggle(v)}>
-                {row.status==="Active"?"Deactivate":"Activate"}
-              </Btn>
-            )},
-          ]}
-          rows={users}
-        />
-      </Card>
-    </div>
-  );
-}
-
-/* ── CONSUMER PAGE ── */
-function ConsumerPage({ batch }) {
-  const b = batch || BATCHES[0];
-  const grade = b.score>=85?"Premium":"Standard";
-  const stages = [
-    {label:"Harvested",  icon:"🌾",date:b.date,   loc:b.location,           done:true},
-    {label:"Processed",  icon:"⚙️",date:"T+2",    loc:"Nakuru Processing",  done:true},
-    {label:"In Storage", icon:"🏭",date:"T+4",    loc:"Nairobi Cold Store", done:true},
-    {label:"Dispatched", icon:"🚚",date:"T+8",    loc:"Nairobi Depot",      done:["In Transit","Delivered"].includes(b.status)},
-    {label:"At Retailer",icon:"🛒",date:"T+10",   loc:"Westgate Market",    done:b.status==="Delivered"},
-  ];
-  return (
-    <div style={{maxWidth:480,margin:"0 auto"}}>
-      {/* Hero card */}
-      <Card cls="si" style={{padding:0,marginBottom:14,background:`linear-gradient(135deg,${C.forest},${C.pine})`,border:"none"}}>
-        <div style={{padding:"28px 24px 22px"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-            <div>
-              <div style={{fontSize:10,color:C.mint,fontWeight:600,letterSpacing:".06em",textTransform:"uppercase",marginBottom:6}}>Verified Product</div>
-              <h1 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:32,fontWeight:600,color:C.white,letterSpacing:"-.04em"}}>{b.crop}</h1>
-              <div style={{fontSize:13,color:"rgba(255,255,255,.55)",marginTop:4}}>Batch {b.id}</div>
-            </div>
-            <div style={{textAlign:"center"}}>
-              <div style={{fontSize:34,fontWeight:800,color:C.white,lineHeight:1}}>{b.score}%</div>
-              <div style={{fontSize:9,color:C.mint,letterSpacing:".05em",marginTop:2}}>AI SCORE</div>
-              <div style={{marginTop:8}}><Badge status={grade}/></div>
-            </div>
-          </div>
-        </div>
-        <div style={{padding:"11px 24px",background:"rgba(255,255,255,.06)",borderTop:"1px solid rgba(255,255,255,.1)",display:"flex",alignItems:"center",gap:10}}>
-          <span style={{fontSize:18}}>🛡️</span>
-          <div style={{flex:1}}>
-            <div style={{fontSize:12,fontWeight:700,color:C.white}}>Blockchain Verified</div>
-            <div style={{fontSize:11,color:"rgba(255,255,255,.5)"}}>Fully traceable on FarmChainX network</div>
-          </div>
-          <span style={{fontSize:10,color:C.mint,fontWeight:700}}>✓ AUTHENTICATED</span>
-        </div>
-      </Card>
-
-      {/* Info grid */}
-      <Card cls="fu d1" style={{padding:20,marginBottom:14}}>
-        <h3 style={{fontSize:11,fontWeight:700,color:C.fog,textTransform:"uppercase",letterSpacing:".07em",marginBottom:14}}>Batch Information</h3>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-          {[["Harvest Date",b.date],["Farm Location",b.location],["Farmer",b.farmer],["Variety",b.variety],["Quantity",b.qty],["Quality Grade",grade]].map(([k,v])=>(
-            <div key={k} style={{background:C.pearl,padding:"10px 12px",borderRadius:10}}>
-              <div style={{fontSize:10,color:C.fog,fontWeight:600,textTransform:"uppercase",letterSpacing:".04em",marginBottom:3}}>{k}</div>
-              <div style={{fontSize:13,fontWeight:600,color:C.ink}}>{v}</div>
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      {/* Journey */}
-      <Card cls="fu d2" style={{padding:20}}>
-        <h3 style={{fontSize:11,fontWeight:700,color:C.fog,textTransform:"uppercase",letterSpacing:".07em",marginBottom:18}}>Product Journey</h3>
-        {stages.map((s,i)=>(
-          <div key={s.label} style={{display:"flex",gap:14,alignItems:"flex-start"}}>
-            <div style={{display:"flex",flexDirection:"column",alignItems:"center"}}>
-              <div style={{
-                width:38,height:38,borderRadius:"50%",flexShrink:0,
-                background:s.done?`linear-gradient(135deg,${C.moss},${C.fern})`:C.pearl,
-                border:s.done?"none":`2px dashed ${C.silver}`,
-                display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,
-              }}>{s.done?"✓":s.icon}</div>
-              {i<stages.length-1&&<div style={{width:2,height:26,background:s.done?C.mint:C.pearl,margin:"3px 0"}}/>}
-            </div>
-            <div style={{paddingTop:8,flex:1}}>
-              <div style={{fontSize:13,fontWeight:600,color:s.done?C.ink:C.fog}}>{s.label}</div>
-              <div style={{fontSize:11,color:C.slate,marginTop:1}}>{s.loc} · {s.date}</div>
+              <div className="flex gap-2 mt-4"><button className="btn btn-secondary btn-sm">Edit</button><button className="btn btn-danger btn-sm">Delist</button></div>
             </div>
           </div>
         ))}
-      </Card>
-    </div>
+      </div>
+    </RetailLayout>
   );
 }
 
-/* ── QR SCAN PAGE ── */
-function QRScan({ setPage, setBatch }) {
-  const [mode, setMode] = useState("idle");
-  const [scanning, setScanning] = useState(false);
+function RetailerOrders() {
+  const orders = [
+    { id: "ORD-4501", customer: "Meera Nair", product: "Alphonso Mangoes", qty: 2, amount: 640, status: "delivered", date: "Mar 9" },
+    { id: "ORD-4502", customer: "Rajan S.", product: "Organic Rice", qty: 5, amount: 425, status: "processing", date: "Mar 9" },
+    { id: "ORD-4503", customer: "Anita K.", product: "A2 Cow Ghee", qty: 1, amount: 850, status: "shipped", date: "Mar 8" },
+    { id: "ORD-4504", customer: "Vikram R.", product: "Turmeric Powder", qty: 3, amount: 480, status: "pending", date: "Mar 8" },
+  ];
+  return (
+    <RetailLayout title="Order Management">
+      <div className="page-header"><div className="page-title">Orders</div><div className="page-sub">Manage customer orders</div></div>
+      <div className="card">
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Order ID</th><th>Customer</th><th>Product</th><th>Qty</th><th>Amount</th><th>Date</th><th>Status</th></tr></thead>
+            <tbody>
+              {orders.map(o => (
+                <tr key={o.id}>
+                  <td><strong>{o.id}</strong></td><td>{o.customer}</td><td>{o.product}</td><td>{o.qty}</td>
+                  <td>₹{o.amount}</td><td>{o.date}</td>
+                  <td><span className={`pill ${o.status === "delivered" ? "pill-green" : o.status === "shipped" ? "pill-blue" : o.status === "processing" ? "pill-yellow" : "pill-gray"}`}>{o.status}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </RetailLayout>
+  );
+}
 
-  const simulate = () => {
-    setScanning(true);
-    setTimeout(()=>{ setScanning(false); setBatch(BATCHES[0]); setMode("scanned"); }, 1800);
-  };
-
+// ─── CONSUMER ─────────────────────────────────────────────────────────────────
+function CartPage() {
+  const { cartItems, removeFromCart, updateQty } = useCart();
+  const total = cartItems.reduce((s, i) => s + i.price * i.qty, 0);
   return (
     <div>
-      <TopBar title="QR Scanner" sub="Scan a product QR code to access full traceability"/>
-      <div style={{maxWidth:500,margin:"0 auto"}}>
-        {mode==="idle"&&(
-          <Card cls="si" style={{padding:44,textAlign:"center"}}>
-            <div style={{width:80,height:80,borderRadius:20,margin:"0 auto 22px",background:`linear-gradient(135deg,${C.dew},${C.mist})`,border:`2px solid ${C.mint}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:40}}>📷</div>
-            <h2 style={{fontSize:21,fontWeight:700,color:C.ink,marginBottom:8}}>Scan Product QR</h2>
-            <p style={{fontSize:14,color:C.slate,marginBottom:28,lineHeight:1.65}}>
-              Use your camera or upload an image to access full product traceability and AI quality scores.
-            </p>
-            <div style={{display:"flex",gap:12,justifyContent:"center",flexWrap:"wrap"}}>
-              <Btn icon="📷" sz="lg" onClick={()=>setMode("camera")}>Open Camera</Btn>
-              <Btn icon="📁" v="ghost" sz="lg">Upload Image</Btn>
-            </div>
-          </Card>
-        )}
-        {mode==="camera"&&(
-          <Card cls="si" style={{padding:24}}>
-            <div style={{marginBottom:18}}>
-              <h2 style={{fontSize:17,fontWeight:700,color:C.ink}}>Camera Active</h2>
-              <p style={{fontSize:12,color:C.slate,marginTop:2}}>Position QR code within the frame</p>
-            </div>
-            <div style={{position:"relative",background:C.ink,borderRadius:12,overflow:"hidden",marginBottom:20,paddingTop:"70%"}}>
-              <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12}}>
-                {scanning?(
-                  <>
-                    <div style={{width:32,height:32,borderRadius:"50%",border:`3px solid ${C.sage}`,borderTopColor:"transparent",animation:"spin .7s linear infinite"}}/>
-                    <span style={{color:C.mint,fontSize:13}}>Scanning…</span>
-                  </>
-                ):(
-                  <>
-                    {[{top:"22%",left:"22%",borderTop:`3px solid ${C.sage}`,borderLeft:`3px solid ${C.sage}`},{top:"22%",right:"22%",borderTop:`3px solid ${C.sage}`,borderRight:`3px solid ${C.sage}`},{bottom:"22%",left:"22%",borderBottom:`3px solid ${C.sage}`,borderLeft:`3px solid ${C.sage}`},{bottom:"22%",right:"22%",borderBottom:`3px solid ${C.sage}`,borderRight:`3px solid ${C.sage}`}].map((s,i)=>(
-                      <div key={i} style={{position:"absolute",width:28,height:28,borderRadius:3,...s}}/>
-                    ))}
-                    <span style={{color:"rgba(255,255,255,.35)",fontSize:12,position:"absolute",bottom:"16%"}}>Align QR code within the frame</span>
-                  </>
-                )}
-              </div>
-            </div>
-            <div style={{display:"flex",gap:10}}>
-              <Btn style={{flex:1,justifyContent:"center"}} onClick={simulate} disabled={scanning}>{scanning?"Scanning…":"Simulate Scan"}</Btn>
-              <Btn v="ghost" style={{flex:1,justifyContent:"center"}} onClick={()=>setMode("idle")}>Cancel</Btn>
-            </div>
-          </Card>
-        )}
-        {mode==="scanned"&&(
-          <Card cls="si" style={{padding:28}}>
-            <div style={{textAlign:"center",padding:"8px 0 18px",borderBottom:`1px solid ${C.pearl}`,marginBottom:18}}>
-              <div style={{fontSize:48,marginBottom:10}}>✅</div>
-              <div style={{fontSize:18,fontWeight:700,color:C.pine}}>QR Code Scanned!</div>
-              <div style={{fontSize:13,color:C.slate,marginTop:4}}>Batch identified successfully</div>
-            </div>
-            <div style={{display:"flex",flexDirection:"column",gap:9,marginBottom:22}}>
-              {[["Batch ID",BATCHES[0].id],["Product",BATCHES[0].crop],["Farm",BATCHES[0].location],["AI Quality",`${BATCHES[0].score}% · Premium`],["Status",BATCHES[0].status]].map(([k,v])=>(
-                <div key={k} style={{display:"flex",justifyContent:"space-between",padding:"8px 12px",background:C.pearl,borderRadius:8}}>
-                  <span style={{fontSize:13,color:C.slate}}>{k}</span>
-                  <span style={{fontSize:13,fontWeight:600,color:C.ink}}>{v}</span>
+      <PublicNav cartCount={cartItems.length} />
+      <div style={{ padding: "28px 32px", maxWidth: 900, margin: "0 auto" }}>
+        <div className="page-header"><div className="page-title">Shopping Cart 🛒</div><div className="page-sub">{cartItems.length} items</div></div>
+        <div className="grid-2" style={{ alignItems: "start" }}>
+          <div className="card card-pad">
+            {cartItems.length === 0 ? (
+              <div className="empty-state"><div className="empty-icon">🛒</div><div className="empty-title">Cart is Empty</div><div className="empty-desc">Browse the marketplace to add products</div><Link to="/marketplace"><button className="btn btn-primary" style={{ marginTop: 16 }}>Shop Now</button></Link></div>
+            ) : cartItems.map(item => (
+              <div className="cart-item" key={item.id}>
+                <div className="cart-item-img">{item.icon}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700 }}>{item.name}</div>
+                  <div style={{ fontSize: 13, color: "var(--muted)" }}>{item.farmer}</div>
+                  <div style={{ fontWeight: 700, color: "var(--pine)", marginTop: 4 }}>₹{item.price}/{item.unit}</div>
                 </div>
-              ))}
+                <div className="qty-ctrl">
+                  <button className="qty-btn" onClick={() => updateQty(item.id, item.qty - 1)}>−</button>
+                  <span style={{ fontWeight: 700, minWidth: 20, textAlign: "center" }}>{item.qty}</span>
+                  <button className="qty-btn" onClick={() => updateQty(item.id, item.qty + 1)}>+</button>
+                </div>
+                <div style={{ fontWeight: 700, minWidth: 70, textAlign: "right" }}>₹{item.price * item.qty}</div>
+                <button className="btn btn-danger btn-sm" onClick={() => removeFromCart(item.id)}>✕</button>
+              </div>
+            ))}
+          </div>
+          <div className="card card-pad">
+            <div className="section-title">Order Summary</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+              <div className="flex justify-between"><span>Subtotal</span><strong>₹{total}</strong></div>
+              <div className="flex justify-between"><span>Delivery</span><strong style={{ color: "#16a34a" }}>FREE</strong></div>
+              <div className="flex justify-between"><span>Platform Fee</span><strong>₹10</strong></div>
+              <hr className="divider" />
+              <div className="flex justify-between"><span style={{ fontWeight: 700, fontSize: 16 }}>Total</span><strong style={{ fontSize: 20, color: "var(--pine)" }}>₹{total + 10}</strong></div>
             </div>
-            <div style={{display:"flex",gap:10}}>
-              <Btn style={{flex:1,justifyContent:"center"}} onClick={()=>setPage("consumer")}>Full Traceability →</Btn>
-              <Btn v="ghost" style={{flex:1,justifyContent:"center"}} onClick={()=>setMode("idle")}>Scan Another</Btn>
-            </div>
-          </Card>
-        )}
+            <Link to="/consumer/checkout"><button className="btn btn-primary w-full btn-lg">Proceed to Checkout →</button></Link>
+            <Link to="/marketplace"><button className="btn btn-secondary w-full" style={{ marginTop: 10 }}>Continue Shopping</button></Link>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-/* ── PLACEHOLDER ── */
-function Placeholder({ icon, title, desc }) {
+function CheckoutPage() {
+  const { cartItems } = useCart();
+  const total = cartItems.reduce((s, i) => s + i.price * i.qty, 0);
   return (
     <div>
-      <TopBar title={title} sub={desc}/>
-      <Card cls="si" style={{padding:60,textAlign:"center"}}>
-        <div style={{fontSize:52,marginBottom:16}}>{icon}</div>
-        <h2 style={{fontSize:20,fontWeight:700,color:C.ink,marginBottom:8}}>{title}</h2>
-        <p style={{fontSize:14,color:C.slate}}>{desc}</p>
-      </Card>
+      <PublicNav cartCount={cartItems.length} />
+      <div style={{ padding: "28px 32px", maxWidth: 900, margin: "0 auto" }}>
+        <div className="page-header"><div className="page-title">Checkout</div></div>
+        <div className="grid-2" style={{ alignItems: "start" }}>
+          <div>
+            <div className="card card-pad mb-4">
+              <div className="section-title">📍 Delivery Address</div>
+              <div className="grid-2">
+                <div className="form-group"><label className="form-label">Full Name</label><input className="form-input" placeholder="Meera Nair" /></div>
+                <div className="form-group"><label className="form-label">Phone</label><input className="form-input" placeholder="+91 98xxx xxxxx" /></div>
+              </div>
+              <div className="form-group"><label className="form-label">Address</label><input className="form-input" placeholder="House No, Street, Area" /></div>
+              <div className="grid-2">
+                <div className="form-group"><label className="form-label">City</label><input className="form-input" placeholder="Mumbai" /></div>
+                <div className="form-group"><label className="form-label">Pincode</label><input className="form-input" placeholder="400001" /></div>
+              </div>
+            </div>
+            <div className="card card-pad">
+              <div className="section-title">💳 Payment</div>
+              <div className="flex gap-3 mb-4" style={{ flexWrap: "wrap" }}>
+                {["UPI", "Card", "Net Banking", "Cash on Delivery"].map(m => (
+                  <label key={m} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 14, fontWeight: 500 }}>
+                    <input type="radio" name="pay" defaultChecked={m === "UPI"} /> {m}
+                  </label>
+                ))}
+              </div>
+              <div className="form-group"><label className="form-label">UPI ID</label><input className="form-input" placeholder="name@upi" /></div>
+            </div>
+          </div>
+          <div className="card card-pad">
+            <div className="section-title">Order Items ({cartItems.length})</div>
+            {cartItems.map(i => (
+              <div key={i.id} className="flex justify-between items-center" style={{ padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 20 }}>{i.icon}</span>
+                  <div><div style={{ fontWeight: 600, fontSize: 13 }}>{i.name}</div><div style={{ fontSize: 12, color: "var(--muted)" }}>x{i.qty}</div></div>
+                </div>
+                <strong>₹{i.price * i.qty}</strong>
+              </div>
+            ))}
+            <div className="flex justify-between mt-4"><span style={{ fontWeight: 700 }}>Total</span><strong style={{ color: "var(--pine)", fontSize: 18 }}>₹{total + 10}</strong></div>
+            <Link to="/consumer/order-tracking"><button className="btn btn-primary w-full btn-lg" style={{ marginTop: 16 }}>Place Order ✓</button></Link>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   APP
-═══════════════════════════════════════════════════════════════ */
-export default function App() {
-  useEffect(() => { injectAssets(); }, []);
-
-  const [role, setRole] = useState(null);
-  const [page, setPage] = useState(null);
-  const [batch, setBatch] = useState(null);
-
-  const login = r => {
-    setRole(r);
-    setPage(r==="Farmer"?"farmer-dash":r==="Distributor"?"dist-dash":"admin-dash");
-  };
-  const logout = () => { setRole(null); setPage(null); };
-
-  const renderPage = () => {
-    switch(page) {
-      case "farmer-dash":    return <FarmerDash setPage={setPage} setBatch={setBatch}/>;
-      case "farmer-batches": return <FarmerBatches setPage={setPage} setBatch={setBatch}/>;
-      case "batch-detail":   return <BatchDetail batch={batch} setPage={setPage}/>;
-      case "consumer":       return <ConsumerPage batch={batch}/>;
-      case "qr-scan":        return <QRScan setPage={setPage} setBatch={setBatch}/>;
-      case "dist-dash":      return <DistDash/>;
-      case "admin-dash":     return <AdminDash/>;
-      case "supply-chain":   return <Placeholder icon="🔗" title="Supply Chain" desc="End-to-end supply chain visualization coming soon."/>;
-      case "reports":        return <Placeholder icon="📊" title="Reports" desc="Batch analytics and export reports coming soon."/>;
-      case "dist-ships":     return <Placeholder icon="🚚" title="Shipments" desc="Detailed shipment management coming soon."/>;
-      case "dist-inv":       return <Placeholder icon="🏪" title="Inventory" desc="Inventory tracking coming soon."/>;
-      case "admin-settings": return <Placeholder icon="⚙️" title="Settings" desc="System configuration coming soon."/>;
-      default:               return <Placeholder icon="🌾" title="Coming Soon" desc="This page is under construction."/>;
-    }
-  };
-
-  if (!role) return <LoginPage onLogin={login}/>;
-
+function OrderTrackingPage() {
   return (
-    <div style={{display:"flex",minHeight:"100vh"}}>
-      <Sidebar role={role} active={page} setPage={setPage} logout={logout}/>
-      <main style={{flex:1,padding:"34px 30px",overflowY:"auto",minWidth:0}}>
-        {renderPage()}
-        {/* Demo nav */}
-        <div style={{marginTop:44,padding:"18px 22px",background:C.white,border:`1px solid ${C.mist}`,borderRadius:16,boxShadow:`0 2px 14px rgba(26,58,42,.05)`}}>
-          <div style={{fontSize:10,fontWeight:700,color:C.fog,textTransform:"uppercase",letterSpacing:".07em",marginBottom:11}}>🗺️ Demo Navigation</div>
-          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+    <div>
+      <PublicNav cartCount={0} />
+      <div style={{ padding: "28px 32px", maxWidth: 700, margin: "0 auto" }}>
+        <div className="page-header"><div className="page-title">Order Tracking 📍</div><div className="page-sub">Order #ORD-4508 · Placed Mar 10, 2024</div></div>
+        <div className="card card-pad mb-4">
+          <div style={{ textAlign: "center", padding: "20px 0" }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>🚚</div>
+            <div style={{ fontFamily: "Syne", fontSize: 20, fontWeight: 800, marginBottom: 4 }}>Your Order is on the Way!</div>
+            <div style={{ color: "var(--muted)" }}>Expected delivery: <strong>March 12, 2024</strong></div>
+          </div>
+        </div>
+        <div className="card card-pad">
+          <div className="section-title">📦 Tracking Timeline</div>
+          <div className="timeline">
             {[
-              ["📦","Batch Detail","batch-detail","Farmer"],
-              ["🛒","Consumer View","consumer","Farmer"],
-              ["📷","QR Scanner","qr-scan","Farmer"],
-              ["🚚","Distributor","dist-dash","Distributor"],
-              ["🛠","Admin","admin-dash","Admin"],
-            ].map(([ic,lb,pg,r])=>(
-              <Btn key={pg} sz="sm" v="secondary" icon={ic} onClick={()=>{
-                if(r!==role){setRole(r);}
-                setPage(pg);
-              }}>{lb}</Btn>
+              { label: "Order Placed", meta: "Mar 10, 2:30 PM · Payment confirmed", done: true },
+              { label: "Farmer Dispatched", meta: "Ravi Kumar Farm, Punjab", done: true },
+              { label: "Picked by Distributor", meta: "TransAgri Logistics", done: true },
+              { label: "In Transit to Your City", meta: "Expected: Mar 11", done: false },
+              { label: "Out for Delivery", meta: "Expected: Mar 12", done: false, pending: true },
+              { label: "Delivered", meta: "Expected: Mar 12, 6 PM", done: false, pending: true },
+            ].map((t, i) => (
+              <div className="timeline-item" key={i}>
+                <div className={`timeline-dot ${t.done ? "done" : t.pending ? "pending" : ""}`} />
+                <div className="timeline-title">{t.label}</div>
+                <div className="timeline-meta">{t.meta}</div>
+              </div>
             ))}
           </div>
         </div>
-      </main>
+      </div>
     </div>
+  );
+}
+
+function QRScanPage() {
+  return (
+    <div>
+      <PublicNav cartCount={0} />
+      <div style={{ padding: "28px 32px", maxWidth: 600, margin: "0 auto", textAlign: "center" }}>
+        <div className="page-header"><div className="page-title">QR Traceability</div><div className="page-sub">Scan or enter batch ID to trace product origin</div></div>
+        <div className="card card-pad" style={{ marginBottom: 20 }}>
+          <div style={{ background: "linear-gradient(135deg, var(--lime), var(--sage))", borderRadius: 12, height: 200, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12, marginBottom: 20 }}>
+            <div style={{ fontSize: 48 }}>📷</div>
+            <div style={{ color: "white", fontWeight: 700 }}>Camera Scanner</div>
+            <div style={{ fontSize: 13, color: "rgba(255,255,255,0.8)" }}>Point camera at product QR code</div>
+          </div>
+          <div className="form-group" style={{ display: "flex", gap: 10 }}>
+            <input className="form-input" placeholder="Or enter Batch ID e.g. BCH-001" style={{ flex: 1 }} />
+            <button className="btn btn-primary">Trace</button>
+          </div>
+        </div>
+        <div className="card card-pad" style={{ textAlign: "left" }}>
+          <div className="section-title">🌾 Trace Result: BCH-001</div>
+          <div className="grid-2">
+            {[["Product", "Organic Basmati Rice"], ["Farmer", "Ravi Kumar"], ["Farm", "Amritsar, Punjab"], ["Harvest", "Feb 28, 2024"], ["Certified", "FSSAI + Organic"], ["Journey", "Farm → Delhi → Retailer"]].map(([k, v]) => (
+              <div key={k} style={{ marginBottom: 10 }}><div style={{ fontSize: 12, color: "var(--muted)" }}>{k}</div><div style={{ fontWeight: 600 }}>{v}</div></div>
+            ))}
+          </div>
+          <div style={{ marginTop: 12, padding: 12, background: "#dcfce7", borderRadius: 8, color: "#15803d", fontWeight: 600, fontSize: 14 }}>
+            ✅ Verified — This product's supply chain is fully transparent and certified
+          </div>
+        </div>
+      </div>
+      <ChatBot />
+    </div>
+  );
+}
+
+
+
+// ─── HELP CENTER ──────────────────────────────────────────────────────────────
+function HelpPage() {
+  const faqs = [
+    ["How do I create a new batch?", "Go to Farmer Dashboard → Create Batch, fill in product details and submit. Your batch will appear in My Batches once approved."],
+    ["How does QR traceability work?", "Each batch generates a unique QR code. Consumers scan it to see the complete farm-to-fork journey including certifications."],
+    ["When do I receive payment?", "Payments are settled within 3-5 business days after delivery confirmation by the retailer."],
+    ["How do I become certified organic?", "Upload FSSAI or organic certification documents in your profile. Our team verifies and adds the badge within 48 hours."],
+    ["What if my shipment is delayed?", "Contact your assigned distributor through the messaging system or raise a support ticket for assistance."],
+  ];
+  return (
+    <div>
+      <PublicNav cartCount={0} />
+      <div style={{ background: "var(--forest)", color: "white", padding: "48px 32px", textAlign: "center" }}>
+        <div style={{ fontSize: 40, marginBottom: 12 }}>❓</div>
+        <h1 style={{ fontFamily: "Syne", fontSize: 32, fontWeight: 800, marginBottom: 8 }}>Help Center</h1>
+        <p style={{ opacity: 0.8, marginBottom: 20 }}>Find answers to common questions</p>
+        <div style={{ display: "flex", gap: 8, maxWidth: 480, margin: "0 auto" }}>
+          <input className="form-input" placeholder="Search help articles..." style={{ flex: 1 }} />
+          <button className="btn btn-primary">Search</button>
+        </div>
+      </div>
+      <div style={{ padding: "48px 32px", maxWidth: 800, margin: "0 auto" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 16, marginBottom: 40 }}>
+          {[["📦", "Batches"], ["🚚", "Shipments"], ["💰", "Payments"], ["🌿", "Certifications"], ["📱", "QR Codes"], ["🎫", "Tickets"]].map(([i, l]) => (
+            <div key={l} style={{ background: "white", border: "1px solid var(--border)", borderRadius: 12, padding: "20px 16px", textAlign: "center", cursor: "pointer", transition: "all .15s" }}>
+              <div style={{ fontSize: 28, marginBottom: 8 }}>{i}</div>
+              <div style={{ fontWeight: 600, fontSize: 14 }}>{l}</div>
+            </div>
+          ))}
+        </div>
+        <h2 style={{ fontFamily: "Syne", fontSize: 22, fontWeight: 800, marginBottom: 20 }}>Frequently Asked Questions</h2>
+        {faqs.map(([q, a]) => (
+          <div key={q} style={{ background: "white", border: "1px solid var(--border)", borderRadius: 12, padding: "20px", marginBottom: 12 }}>
+            <div style={{ fontWeight: 700, marginBottom: 8 }}>Q: {q}</div>
+            <div style={{ color: "var(--muted)", fontSize: 14, lineHeight: 1.7 }}>{a}</div>
+          </div>
+        ))}
+        <div style={{ background: "var(--forest)", color: "white", borderRadius: 16, padding: "32px", textAlign: "center", marginTop: 32 }}>
+          <div style={{ fontSize: 28, marginBottom: 8 }}>🤖</div>
+          <h3 style={{ fontFamily: "Syne", fontWeight: 800, marginBottom: 8 }}>Still need help? Chat with FarmBot</h3>
+          <p style={{ opacity: 0.8, fontSize: 14, marginBottom: 16 }}>Our AI assistant is available 24/7</p>
+          <button className="btn" style={{ background: "var(--sage)", color: "white", padding: "12px 24px", borderRadius: 8, border: "none", cursor: "pointer", fontWeight: 600 }}>Open Chat →</button>
+        </div>
+      </div>
+      <ChatBot />
+    </div>
+  );
+}
+
+// ─── 404 ──────────────────────────────────────────────────────────────────────
+function NotFound() {
+  return (
+    <div>
+      <PublicNav cartCount={0} />
+      <div className="empty-state" style={{ padding: "100px 20px" }}>
+        <div className="empty-icon">🌾</div>
+        <div className="empty-title" style={{ fontSize: 28 }}>Page Not Found</div>
+        <div className="empty-desc" style={{ marginBottom: 20 }}>This field is empty. Let's get you back on track.</div>
+        <Link to="/"><button className="btn btn-primary btn-lg">Go Home</button></Link>
+      </div>
+    </div>
+  );
+}
+
+// ─── ROUTER ───────────────────────────────────────────────────────────────────
+function AppRouter() {
+  const { path } = useRouter();
+
+  // Simple param extraction
+  const productMatch = path.match(/^\/product\/(\d+)$/);
+  if (productMatch) return <ProductDetailPage id={productMatch[1]} />;
+
+  const routes = {
+    "/": <HomePage />,
+    "/login": <LoginPage />,
+    "/marketplace": <MarketplacePage />,
+    "/help": <HelpPage />,
+    "/farmer/dashboard": <FarmerDashboard />,
+    "/farmer/batches": <FarmerBatches />,
+    "/farmer/create-batch": <FarmerCreateBatch />,
+    "/farmer/analytics": <FarmerAnalytics />,
+    "/farmer/qr": <FarmerQR />,
+    "/distributor/dashboard": <DistributorDashboard />,
+    "/distributor/shipments": <DistributorShipments />,
+    "/distributor/tracking": <DistributorTracking />,
+    "/retailer/dashboard": <RetailerDashboard />,
+    "/retailer/inventory": <RetailerInventory />,
+    "/retailer/listings": <RetailerListings />,
+    "/retailer/orders": <RetailerOrders />,
+    "/consumer/cart": <CartPage />,
+    "/consumer/checkout": <CheckoutPage />,
+    "/consumer/order-tracking": <OrderTrackingPage />,
+    "/consumer/qr-scan": <QRScanPage />,
+
+  };
+
+  return routes[path] || <NotFound />;
+}
+
+// ─── APP ──────────────────────────────────────────────────────────────────────
+export default function App() {
+  const [user, setUser] = useState(null);
+  const [cartItems, setCartItems] = useState([]);
+
+  const addToCart = (product) => {
+    setCartItems(items => {
+      const existing = items.find(i => i.id === product.id);
+      if (existing) return items.map(i => i.id === product.id ? { ...i, qty: i.qty + 1 } : i);
+      return [...items, { ...product, qty: 1 }];
+    });
+  };
+  const removeFromCart = (id) => setCartItems(items => items.filter(i => i.id !== id));
+  const updateQty = (id, qty) => {
+    if (qty <= 0) removeFromCart(id);
+    else setCartItems(items => items.map(i => i.id === id ? { ...i, qty } : i));
+  };
+
+  return (
+    <AuthCtx.Provider value={{ user, setUser }}>
+      <CartCtx.Provider value={{ cartItems, addToCart, removeFromCart, updateQty }}>
+        <style>{CSS}</style>
+        <AppRouter />
+      </CartCtx.Provider>
+    </AuthCtx.Provider>
   );
 }
