@@ -1,5 +1,4 @@
 package com.farmchainx.controller;
-
 import com.farmchainx.model.User;
 import com.farmchainx.repository.UserRepository;
 import com.farmchainx.security.JwtUtil;
