@@ -367,8 +367,9 @@ function LoginPage() {
       localStorage.setItem("farmerName", data.name);
       setUser({ name: data.name, role: data.role.toLowerCase(), email: data.email, id: data.id });
       navigate(ROLE_DEST[data.role] || "/");
-    } catch {
-      setError("⚠️ Cannot connect to server. Make sure the backend is running on port 8080.");
+    } catch(err){
+      console.error(err);
+      setError("Something went wrong");
     } finally { setLoading(false); }
   };
 
@@ -413,14 +414,15 @@ function RegisterPage() {
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
   const ROLE_DEST = { FARMER:"/farmer/dashboard", DISTRIBUTOR:"/distributor/dashboard", RETAILER:"/retailer/dashboard", CONSUMER:"/marketplace" };
   const roles = [{ value:"FARMER", label:"🧑‍🌾 Farmer" },{ value:"DISTRIBUTOR", label:"🚛 Distributor" },{ value:"RETAILER", label:"🏪 Retailer" },{ value:"CONSUMER", label:"👤 Consumer" }];
-
+  
+  const BASE_URL = "https://farmchainx-production-3250.up.railway.app";
   const handleRegister = async () => {
     if (!form.name||!form.email||!form.password||!form.role) { setError("Please fill in all fields"); return; }
     if (form.password!==form.confirmPassword) { setError("Passwords do not match"); return; }
     if (form.password.length<6) { setError("Password must be at least 6 characters"); return; }
     setLoading(true); setError("");
     try {
-      const res = await fetch("https://farmchainx-production-3250.up.railway.app/api/auth/register", {
+      const res = await fetch(`${BASE_URL}/api/auth/register`, {
         method:"POST", headers:{"Content-Type":"application/json"},
         body:JSON.stringify({ name:form.name.trim(), email:form.email.trim(), password:form.password, role:form.role }), mode:"cors",
       });
