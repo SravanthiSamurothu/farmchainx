@@ -368,15 +368,22 @@ function LoginPage() {
   };
 
   return (
-    <div style={{ minHeight:"100vh", display:"flex", background:"linear-gradient(135deg, var(--forest) 0%, var(--pine) 60%, var(--sage) 100%)" }}>
-      <div style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"center", padding:"60px", color:"white" }} className="hide-mobile">
+    <div style={{
+      minHeight:"100vh", display:"flex", flexDirection: window.innerWidth<768? "column" :"row"
+    }}>
+      <div style={{
+        flex:1,
+        display:window.innerWidth < 768 ? "none" : 
+        "flex"
+        }}
+      >
         <h1 style={{ fontFamily:"Syne", fontSize:52, fontWeight:800, marginBottom:20, lineHeight:1.05, letterSpacing:"-1px" }}>FarmChainX</h1>
   <p style={{ fontSize:18, opacity:0.75, maxWidth:380, lineHeight:1.8, fontWeight:400 }}>
     A transparent agricultural supply chain platform connecting farmers, distributors, retailers and consumers.
   </p>
       </div>
-      <div style={{ width:460, display:"flex", alignItems:"center", justifyContent:"center", padding:32, background:"rgba(255,255,255,0.07)", backdropFilter:"blur(10px)" }}>
-        <div style={{ background:"white", borderRadius:20, padding:40, width:"100%", maxWidth:400, boxShadow:"0 20px 60px rgba(0,0,0,0.25)" }}>
+      <div style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"center", padding:32, background:"rgba(255,255,255,0.07)", backdropFilter:"blur(10px)" }}>
+        <div style={{ background:"white", borderRadius:20, padding:40, width:"100%", maxWidth:460, boxShadow:"0 20px 60px rgba(0,0,0,0.25)" }}>
           <div style={{ textAlign:"center", marginBottom:28 }}>
             
             <h2 style={{ fontFamily:"Syne", fontSize:24, fontWeight:800, marginBottom:6 }}>Welcome Back</h2>
