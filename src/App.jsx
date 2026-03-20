@@ -225,7 +225,7 @@ function PublicNav({ cartCount = 0 }) {
     <nav className="pub-nav">
       <Link to="/"><div className="pub-nav-logo">FarmChainX</div></Link>
       <div className="pub-nav-links">
-        {[["Home", "/"], ["Marketplace", "/marketplace"], ["Help", "/help"]].map(([l, h]) => (
+        {[["Home", "/"], ["Help", "/help"]].map(([l, h]) => (
           <Link key={h} to={h}><div className={`pub-nav-link ${path === h ? "active" : ""}`}>{l}</div></Link>
         ))}
       </div>
@@ -290,9 +290,8 @@ function HomePage() {
       <div className="hero">
         
         <div className="hero-title">Transparent Farm-to-Fork Supply Chain</div>
-        <div className="hero-sub">FarmChainX connects farmers, distributors, retailers and consumers through blockchain-verified traceability.</div>
+        <div className="hero-sub">FarmChainX connects farmers, distributors, retailers and consumers through verified traceability.</div>
         <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-          <Link to="/marketplace"><button className="btn btn-primary btn-lg">Browse Marketplace</button></Link>
           <Link to="/login"><button className="btn" style={{ background: "rgba(255,255,255,0.15)", color: "white", fontSize: 16, padding: "14px 28px", borderRadius: 8, border: "2px solid rgba(255,255,255,0.3)", cursor: "pointer" }}>Get Started →</button></Link>
         </div>
       </div>
@@ -315,7 +314,13 @@ function HomePage() {
         </div>
       </div>
       <div className="feature-grid" style={{ background:"var(--bg)" }}>
-        {[["","Blockchain Verified","Every transaction recorded immutably."],["","QR Traceability","Scan to see full product journey."],["","Real-time Analytics","Actionable insights for all roles."],["","Certified Organic","Verified certifications displayed."],[""," Assistant","FarmBot answers queries 24/7."],["","Seamless Commerce","Integrated marketplace with order tracking."]].map(([icon,title,desc])=>(
+        {[
+          ["", "QR Traceability", "Scan to see full product journey."],
+          ["", "Real-time Analytics", "Actionable insights for all roles."],
+          ["", "Certified Organic", "Verified certifications displayed."],
+          ["", "Assistant", "FarmBot answers queries 24/7."],
+          ["", "Seamless Commerce", "Integrated marketplace with order tracking."]
+        ].map(([icon,title,desc])=>(
           <div className="feature-card" key={title}><div className="feature-icon">{icon}</div><div className="feature-title">{title}</div><div className="feature-desc">{desc}</div></div>
         ))}
       </div>
@@ -344,7 +349,7 @@ function LoginPage() {
   const [error, setError] = useState("");
   const { navigate } = useRouter();
 
-  const ROLE_DEST = { FARMER:"/farmer/dashboard", DISTRIBUTOR:"/distributor/dashboard", RETAILER:"/retailer/dashboard", CONSUMER:"/marketplace" };
+  const ROLE_DEST = { FARMER:"/farmer/dashboard", DISTRIBUTOR:"/distributor/dashboard", RETAILER:"/retailer/dashboard", CONSUMER:"/consumer/dashboard" };
 
   const handleLogin = async () => {
     if (!email || !password) { setError("Please enter email and password"); return; }
@@ -368,22 +373,15 @@ function LoginPage() {
   };
 
   return (
-    <div style={{
-      minHeight:"100vh", display:"flex", flexDirection: window.innerWidth<768? "column" :"row"
-    }}>
-      <div style={{
-        flex:1,
-        display:window.innerWidth < 768 ? "none" : 
-        "flex"
-        }}
-      >
+    <div style={{ minHeight:"100vh", display:"flex", background:"linear-gradient(135deg, var(--forest) 0%, var(--pine) 60%, var(--sage) 100%)" }}>
+      <div style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"center", padding:"60px", color:"white" }} className="hide-mobile">
         <h1 style={{ fontFamily:"Syne", fontSize:52, fontWeight:800, marginBottom:20, lineHeight:1.05, letterSpacing:"-1px" }}>FarmChainX</h1>
   <p style={{ fontSize:18, opacity:0.75, maxWidth:380, lineHeight:1.8, fontWeight:400 }}>
     A transparent agricultural supply chain platform connecting farmers, distributors, retailers and consumers.
   </p>
       </div>
-      <div style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"center", padding:32, background:"rgba(255,255,255,0.07)", backdropFilter:"blur(10px)" }}>
-        <div style={{ background:"white", borderRadius:20, padding:40, width:"100%", maxWidth:460, boxShadow:"0 20px 60px rgba(0,0,0,0.25)" }}>
+      <div style={{ width:460, display:"flex", alignItems:"center", justifyContent:"center", padding:32, background:"rgba(255,255,255,0.07)", backdropFilter:"blur(10px)" }}>
+        <div style={{ background:"white", borderRadius:20, padding:40, width:"100%", maxWidth:400, boxShadow:"0 20px 60px rgba(0,0,0,0.25)" }}>
           <div style={{ textAlign:"center", marginBottom:28 }}>
             
             <h2 style={{ fontFamily:"Syne", fontSize:24, fontWeight:800, marginBottom:6 }}>Welcome Back</h2>
@@ -485,6 +483,7 @@ function MarketplacePage() {
   const { addToCart } = useCart();
   const { cartItems } = useCart();
   const { allProducts } = useProducts();
+  const { user } = useAuth();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
 
@@ -496,45 +495,59 @@ function MarketplacePage() {
     });
   }, [allProducts, category, search]);
 
+  const content = (
+    <div>
+      <div className="page-header flex items-center justify-between">
+        <div><div className="page-title">Marketplace</div><div className="page-sub">{filtered.length} products from verified farms</div></div>
+        <input className="form-input" style={{ width: 220 }} placeholder="🔍 Search products..." value={search} onChange={e => setSearch(e.target.value)} />
+      </div>
+      <div className="flex gap-2 mb-6" style={{ flexWrap: "wrap" }}>
+        {["All", ...CATEGORIES].map(c => (
+          <button key={c} className={`btn btn-sm ${category === c ? "btn-primary" : "btn-secondary"}`} onClick={() => setCategory(c)}>{c}</button>
+        ))}
+      </div>
+      {filtered.length === 0 ? (
+        <div className="empty-state"><div className="empty-icon">🌾</div><div className="empty-title">No products found</div></div>
+      ) : (
+        <div className="products-grid">
+          {filtered.map(p => (
+            <div key={p.id} className="product-card">
+              <Link to={`/product/${p.id}`}>
+                <div className="product-img">
+                  {p.certified && <div className="product-badge">🌿 Certified</div>}
+                  <ProductImage product={p} />
+                </div>
+                <div className="product-info">
+                  <div className="product-name">{p.name}</div>
+                  <div className="product-farmer">by {p.farmerName || p.farmer} · {p.origin}</div>
+                  <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>⭐ {p.rating || "4.5"} · {p.category}</div>
+                  <div className="product-meta">
+                    <div className="product-price">₹{p.price}<span style={{ fontSize: 12, fontWeight: 400 }}>/{p.unit}</span></div>
+                    <button className="btn btn-primary btn-sm" onClick={e => { e.preventDefault(); addToCart(p); }}>+ Cart</button>
+                  </div>
+                </div>
+              </Link>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  // ✅ If logged in as consumer → show sidebar layout
+  if (user?.role === "consumer") {
+    return (
+      <ConsumerLayout title="Marketplace">
+        {content}
+      </ConsumerLayout>
+    );
+  }
+
+  // Public view (not logged in)
   return (
     <div>
       <PublicNav cartCount={cartItems.length} />
-      <div style={{ padding:"28px 32px" }}>
-        <div className="page-header flex items-center justify-between">
-          <div><div className="page-title">Marketplace</div><div className="page-sub">{filtered.length} products from verified farms</div></div>
-          <input className="form-input" style={{ width:220 }} placeholder="🔍 Search products..." value={search} onChange={e=>setSearch(e.target.value)} />
-        </div>
-        <div className="flex gap-2 mb-6" style={{ flexWrap:"wrap" }}>
-          {["All",...CATEGORIES].map(c=>(
-            <button key={c} className={`btn btn-sm ${category===c?"btn-primary":"btn-secondary"}`} onClick={()=>setCategory(c)}>{c}</button>
-          ))}
-        </div>
-        {filtered.length===0 ? (
-          <div className="empty-state"><div className="empty-icon">🌾</div><div className="empty-title">No products found</div></div>
-        ) : (
-          <div className="products-grid">
-            {filtered.map(p=>(
-              <div key={p.id} className="product-card">
-                <Link to={`/product/${p.id}`}>
-                  <div className="product-img">
-                    {p.certified && <div className="product-badge">🌿 Certified</div>}
-                    <ProductImage product={p} />
-                  </div>
-                  <div className="product-info">
-                    <div className="product-name">{p.name}</div>
-                    <div className="product-farmer">by {p.farmerName||p.farmer} · {p.origin}</div>
-                    <div style={{ fontSize:12, color:"var(--muted)", marginBottom:8 }}>⭐ {p.rating||"4.5"} · {p.category}</div>
-                    <div className="product-meta">
-                      <div className="product-price">₹{p.price}<span style={{ fontSize:12, fontWeight:400 }}>/{p.unit}</span></div>
-                      <button className="btn btn-primary btn-sm" onClick={e=>{e.preventDefault();addToCart(p);}}>+ Cart</button>
-                    </div>
-                  </div>
-                </Link>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <div style={{ padding: "28px 32px" }}>{content}</div>
       <ChatBot />
     </div>
   );
@@ -1510,8 +1523,15 @@ function DistributorNewShipment() {
                 </option>
               ))}
               {/* Also show seed batches */}
-              {["BCH-001 — Organic Basmati Rice","BCH-002 — Turmeric Powder","BCH-003 — Fresh Spinach","BCH-004 — Finger Millet"].map(b=>(
-                <option key={b} value={b.split(" ")[0]}>{b}</option>
+              {[
+                { code: "BCH-001", name: "Organic Basmati Rice" },
+                { code: "BCH-002", name: "Turmeric Powder" },
+                { code: "BCH-003", name: "Fresh Spinach" },
+                { code: "BCH-004", name: "Finger Millet" }
+              ].map(b => (
+                <option key={b.code} value={b.code}>
+                  {b.code} — {b.name}
+                </option>
               ))}
             </select>
           </div>
