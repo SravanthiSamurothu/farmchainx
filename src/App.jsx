@@ -1,7 +1,7 @@
+import { useState, useEffect, createContext, useContext, useMemo, useCallback } from "react";
+import "./App.css";
 
-import { useState, useEffect, createContext, useContext } from "react";
-
-// ─── Router (hash-based for portability) ───────────────────────────────────
+// ─── Router ──────────────────────────────────────────────────────────────────
 function useRouter() {
   const [path, setPath] = useState(() => window.location.hash.replace("#", "") || "/");
   useEffect(() => {
@@ -15,422 +15,146 @@ function useRouter() {
 
 function Link({ to, children, className = "", style = {} }) {
   return (
-    <a href={`#${to}`} className={className} style={style} onClick={e => { e.preventDefault(); window.location.hash = to; }}>
+    <a href={`#${to}`} className={className} style={style}
+      onClick={e => { e.preventDefault(); window.location.hash = to; }}>
       {children}
     </a>
   );
 }
 
-// ─── Auth Context ────────────────────────────────────────────────────────────
+// ─── Contexts ────────────────────────────────────────────────────────────────
 const AuthCtx = createContext(null);
 function useAuth() { return useContext(AuthCtx); }
-
-// ─── Cart Context ────────────────────────────────────────────────────────────
 const CartCtx = createContext(null);
 function useCart() { return useContext(CartCtx); }
+const ProductsCtx = createContext(null);
+function useProducts() { return useContext(ProductsCtx); }
 
-// ─── Design Tokens ──────────────────────────────────────────────────────────
-const CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
+// ─── Constants ───────────────────────────────────────────────────────────────
+const CATEGORY_ICONS = { Grains:"🌾", Fruits:"🍎", Vegetables:"🥬", Spices:"🌿", Dairy:"🥛", Herbs:"🍃", Other:"" };
+const CATEGORIES = Object.keys(CATEGORY_ICONS);
 
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  :root {
-    --forest: #1a3a2a;
-    --pine: #2d5a3d;
-    --sage: #4a8c5c;
-    --mint: #6dbb7a;
-    --lime: #a8d5a2;
-    --cream: #f5f0e8;
-    --sand: #e8dcc8;
-    --bark: #8b6914;
-    --gold: #d4a017;
-    --amber: #f0c040;
-    --white: #ffffff;
-    --ink: #1a1f16;
-    --muted: #5a6b5a;
-    --border: #d0e0d0;
-    --card: #ffffff;
-    --bg: #f0f5f0;
-    --sidebar-w: 240px;
-    --topbar-h: 64px;
-    --radius: 12px;
-    --shadow: 0 2px 16px rgba(26,58,42,0.10);
-    --shadow-lg: 0 8px 40px rgba(26,58,42,0.15);
-  }
-
-  html, body { height: 100%; font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--ink); }
-
-  h1,h2,h3,h4,h5,h6 { font-family: 'Syne', sans-serif; }
-
-  a { text-decoration: none; color: inherit; }
-
-  /* ── Scrollbar ── */
-  ::-webkit-scrollbar { width: 6px; }
-  ::-webkit-scrollbar-track { background: var(--bg); }
-  ::-webkit-scrollbar-thumb { background: var(--lime); border-radius: 3px; }
-
-  /* ── Layout ── */
-  .app-shell { display: flex; min-height: 100vh; }
-  .main-content { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-  .page-body { flex: 1; padding: 28px; overflow-y: auto; }
-
-  /* ── Sidebar ── */
-  .sidebar {
-    width: var(--sidebar-w); background: var(--forest); color: var(--white);
-    display: flex; flex-direction: column; position: fixed; top: 0; left: 0;
-    height: 100vh; z-index: 100; transition: transform .3s;
-  }
-  .sidebar-logo {
-    padding: 20px 20px 16px; border-bottom: 1px solid rgba(255,255,255,0.08);
-    display: flex; align-items: center; gap: 10px;
-  }
-  .sidebar-logo-icon {
-    width: 36px; height: 36px; background: var(--sage); border-radius: 8px;
-    display: flex; align-items: center; justify-content: center; font-size: 18px;
-  }
-  .sidebar-logo-text { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 15px; line-height: 1.1; }
-  .sidebar-logo-sub { font-size: 10px; opacity: 0.5; font-weight: 400; }
-  .sidebar-section { padding: 16px 12px 4px; }
-  .sidebar-section-label { font-size: 10px; letter-spacing: 1.5px; opacity: 0.4; font-weight: 600; text-transform: uppercase; padding: 0 8px; margin-bottom: 4px; }
-  .sidebar-link {
-    display: flex; align-items: center; gap: 10px; padding: 9px 12px;
-    border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer;
-    transition: all .15s; color: rgba(255,255,255,0.7); margin-bottom: 2px;
-  }
-  .sidebar-link:hover { background: rgba(255,255,255,0.08); color: var(--white); }
-  .sidebar-link.active { background: var(--sage); color: var(--white); }
-  .sidebar-link-icon { width: 18px; text-align: center; font-size: 16px; }
-  .sidebar-footer { margin-top: auto; padding: 16px; border-top: 1px solid rgba(255,255,255,0.08); }
-  .sidebar-user { display: flex; align-items: center; gap: 10px; }
-  .sidebar-avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--sage); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; }
-  .sidebar-user-info { flex: 1; min-width: 0; }
-  .sidebar-user-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .sidebar-user-role { font-size: 11px; opacity: 0.5; }
-
-  /* ── Topbar ── */
-  .topbar {
-    height: var(--topbar-h); background: var(--white); border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; gap: 16px; padding: 0 24px;
-    position: sticky; top: 0; z-index: 50; margin-left: var(--sidebar-w);
-  }
-  .topbar-title { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; flex: 1; }
-  .topbar-actions { display: flex; align-items: center; gap: 12px; }
-  .topbar-btn {
-    width: 38px; height: 38px; border-radius: 8px; border: 1px solid var(--border);
-    background: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
-    font-size: 16px; position: relative; transition: all .15s;
-  }
-  .topbar-btn:hover { background: var(--bg); }
-  .badge {
-    position: absolute; top: -4px; right: -4px; width: 16px; height: 16px;
-    background: var(--sage); border-radius: 50%; font-size: 9px; color: white;
-    display: flex; align-items: center; justify-content: center; font-weight: 700;
-  }
-
-  /* ── Content with sidebar offset ── */
-  .with-sidebar { margin-left: var(--sidebar-w); }
-
-  /* ── Public nav ── */
-  .pub-nav {
-    height: var(--topbar-h); background: var(--white); border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; padding: 0 32px; gap: 32px; position: sticky; top: 0; z-index: 100;
-  }
-  .pub-nav-logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 18px; color: var(--forest); display: flex; align-items: center; gap: 8px; }
-  .pub-nav-links { display: flex; gap: 8px; flex: 1; }
-  .pub-nav-link { padding: 7px 14px; border-radius: 8px; font-size: 14px; font-weight: 500; color: var(--muted); transition: all .15s; cursor: pointer; }
-  .pub-nav-link:hover { color: var(--forest); background: var(--bg); }
-  .pub-nav-link.active { color: var(--forest); font-weight: 600; }
-  .pub-nav-actions { display: flex; gap: 8px; align-items: center; }
-
-  /* ── Buttons ── */
-  .btn {
-    display: inline-flex; align-items: center; gap: 7px; padding: 9px 18px;
-    border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;
-    transition: all .15s; border: none; font-family: 'DM Sans', sans-serif; white-space: nowrap;
-  }
-  .btn-primary { background: var(--sage); color: white; }
-  .btn-primary:hover { background: var(--pine); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(74,140,92,0.3); }
-  .btn-secondary { background: var(--bg); color: var(--ink); border: 1px solid var(--border); }
-  .btn-secondary:hover { background: var(--sand); }
-  .btn-outline { background: transparent; color: var(--sage); border: 2px solid var(--sage); }
-  .btn-outline:hover { background: var(--sage); color: white; }
-  .btn-danger { background: #dc2626; color: white; }
-  .btn-danger:hover { background: #b91c1c; }
-  .btn-sm { padding: 6px 12px; font-size: 13px; }
-  .btn-lg { padding: 14px 28px; font-size: 16px; }
-  .btn-icon { padding: 9px; width: 38px; height: 38px; justify-content: center; }
-
-  /* ── Cards ── */
-  .card {
-    background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
-    border: 1px solid var(--border);
-  }
-  .card-pad { padding: 24px; }
-  .card-header { padding: 18px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
-  .card-body { padding: 20px 24px; }
-
-  /* ── Stat Cards ── */
-  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
-  .stat-card {
-    background: var(--card); border-radius: var(--radius); padding: 20px;
-    border: 1px solid var(--border); box-shadow: var(--shadow);
-    display: flex; flex-direction: column; gap: 8px;
-  }
-  .stat-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
-  .stat-value { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 800; }
-  .stat-label { font-size: 13px; color: var(--muted); font-weight: 500; }
-  .stat-delta { font-size: 12px; font-weight: 600; }
-  .stat-delta.up { color: #16a34a; }
-  .stat-delta.down { color: #dc2626; }
-
-  /* ── Product Cards ── */
-  .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; }
-  .product-card {
-    background: var(--card); border-radius: var(--radius); border: 1px solid var(--border);
-    box-shadow: var(--shadow); overflow: hidden; transition: all .2s; cursor: pointer;
-  }
-  .product-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
-  .product-img {
-    height: 160px; background: linear-gradient(135deg, var(--lime) 0%, var(--sage) 100%);
-    display: flex; align-items: center; justify-content: center; font-size: 52px; position: relative;
-  }
-  .product-badge {
-    position: absolute; top: 10px; left: 10px; background: var(--forest); color: white;
-    font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 20px;
-  }
-  .product-info { padding: 16px; }
-  .product-name { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; margin-bottom: 4px; }
-  .product-farmer { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
-  .product-meta { display: flex; align-items: center; justify-content: space-between; }
-  .product-price { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 800; color: var(--pine); }
-  .product-rating { font-size: 12px; color: var(--bark); }
-
-  /* ── Tables ── */
-  .table-wrap { overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  th { background: var(--bg); padding: 11px 16px; text-align: left; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); }
-  td { padding: 13px 16px; border-bottom: 1px solid var(--border); }
-  tr:last-child td { border-bottom: none; }
-  tr:hover td { background: var(--bg); }
-
-  /* ── Badges ── */
-  .pill { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
-  .pill-green { background: #dcfce7; color: #15803d; }
-  .pill-yellow { background: #fef9c3; color: #854d0e; }
-  .pill-red { background: #fee2e2; color: #991b1b; }
-  .pill-blue { background: #dbeafe; color: #1d4ed8; }
-  .pill-gray { background: #f3f4f6; color: #4b5563; }
-  .pill-orange { background: #ffedd5; color: #9a3412; }
-
-  /* ── Forms ── */
-  .form-group { margin-bottom: 18px; }
-  .form-label { display: block; font-size: 13px; font-weight: 600; color: var(--ink); margin-bottom: 6px; }
-  .form-input {
-    width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px;
-    font-size: 14px; font-family: 'DM Sans', sans-serif; background: white; color: var(--ink);
-    transition: border-color .15s; outline: none;
-  }
-  .form-input:focus { border-color: var(--sage); box-shadow: 0 0 0 3px rgba(74,140,92,0.12); }
-  .form-select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235a6b5a' stroke-width='1.5' fill='none'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 36px; }
-  textarea.form-input { min-height: 100px; resize: vertical; }
-
-  /* ── Timeline ── */
-  .timeline { position: relative; padding-left: 28px; }
-  .timeline::before { content: ''; position: absolute; left: 9px; top: 0; bottom: 0; width: 2px; background: var(--border); }
-  .timeline-item { position: relative; margin-bottom: 20px; }
-  .timeline-dot {
-    position: absolute; left: -23px; top: 4px; width: 14px; height: 14px;
-    border-radius: 50%; background: var(--sage); border: 3px solid white; box-shadow: 0 0 0 2px var(--sage);
-  }
-  .timeline-dot.done { background: var(--pine); }
-  .timeline-dot.pending { background: var(--border); box-shadow: 0 0 0 2px var(--border); }
-  .timeline-title { font-weight: 600; font-size: 14px; }
-  .timeline-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
-
-  /* ── Chart placeholder ── */
-  .chart-bar-wrap { display: flex; align-items: flex-end; gap: 6px; height: 120px; padding-top: 8px; }
-  .chart-bar { flex: 1; border-radius: 4px 4px 0 0; background: linear-gradient(180deg, var(--mint) 0%, var(--sage) 100%); transition: all .3s; cursor: pointer; min-width: 12px; }
-  .chart-bar:hover { filter: brightness(1.1); }
-  .chart-labels { display: flex; gap: 6px; margin-top: 6px; }
-  .chart-label { flex: 1; text-align: center; font-size: 10px; color: var(--muted); }
-
-  /* ── Misc ── */
-  .page-header { margin-bottom: 24px; }
-  .page-title { font-family: 'Syne', sans-serif; font-size: 24px; font-weight: 800; }
-  .page-sub { color: var(--muted); font-size: 14px; margin-top: 4px; }
-  .section-title { font-family: 'Syne', sans-serif; font-size: 17px; font-weight: 700; margin-bottom: 16px; }
-  .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
-  .flex { display: flex; }
-  .flex-1 { flex: 1; }
-  .items-center { align-items: center; }
-  .justify-between { justify-content: space-between; }
-  .gap-2 { gap: 8px; }
-  .gap-3 { gap: 12px; }
-  .gap-4 { gap: 16px; }
-  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
-  .mb-4 { margin-bottom: 16px; }
-  .mb-6 { margin-bottom: 24px; }
-  .mt-4 { margin-top: 16px; }
-  .text-muted { color: var(--muted); font-size: 13px; }
-  .text-sm { font-size: 13px; }
-  .font-bold { font-weight: 700; }
-  .w-full { width: 100%; }
-  .rounded { border-radius: var(--radius); }
-  .p-4 { padding: 16px; }
-  .qr-box {
-    width: 160px; height: 160px; border: 2px solid var(--border); border-radius: 12px;
-    display: flex; align-items: center; justify-content: center; font-size: 72px;
-    background: white; box-shadow: var(--shadow);
-  }
-  .hero { background: linear-gradient(135deg, var(--forest) 0%, var(--pine) 60%, var(--sage) 100%); color: white; padding: 80px 32px; text-align: center; }
-  .hero-title { font-family: 'Syne', sans-serif; font-size: 48px; font-weight: 800; line-height: 1.1; margin-bottom: 16px; }
-  .hero-sub { font-size: 18px; opacity: 0.8; max-width: 560px; margin: 0 auto 32px; }
-  .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 24px; padding: 48px 32px; }
-  .feature-card { background: white; border-radius: var(--radius); padding: 28px; border: 1px solid var(--border); box-shadow: var(--shadow); }
-  .feature-icon { font-size: 36px; margin-bottom: 14px; }
-  .feature-title { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; margin-bottom: 8px; }
-  .feature-desc { font-size: 14px; color: var(--muted); line-height: 1.6; }
-  .chain-step { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-  .chain-icon { width: 64px; height: 64px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 28px; }
-  .chain-arrow { font-size: 24px; color: var(--muted); }
-  .chain-label { font-size: 13px; font-weight: 600; }
-  .chatbot {
-    position: fixed; bottom: 24px; right: 24px; z-index: 999;
-  }
-  .chatbot-btn {
-    width: 56px; height: 56px; border-radius: 50%; background: var(--sage); color: white;
-    display: flex; align-items: center; justify-content: center; font-size: 22px;
-    cursor: pointer; box-shadow: 0 4px 20px rgba(74,140,92,0.4); border: none; transition: all .2s;
-  }
-  .chatbot-btn:hover { transform: scale(1.08); background: var(--pine); }
-  .chatbot-panel {
-    position: absolute; bottom: 64px; right: 0; width: 300px; background: white;
-    border-radius: 16px; box-shadow: var(--shadow-lg); border: 1px solid var(--border);
-    overflow: hidden;
-  }
-  .chatbot-header { background: var(--forest); color: white; padding: 14px 16px; display: flex; align-items: center; gap: 10px; }
-  .chatbot-messages { height: 220px; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
-  .chat-msg { padding: 8px 12px; border-radius: 10px; font-size: 13px; max-width: 85%; }
-  .chat-msg.bot { background: var(--bg); align-self: flex-start; }
-  .chat-msg.user { background: var(--sage); color: white; align-self: flex-end; }
-  .chatbot-input { display: flex; padding: 10px; border-top: 1px solid var(--border); gap: 6px; }
-  .chatbot-input input { flex: 1; border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; font-size: 13px; outline: none; }
-  .chatbot-input input:focus { border-color: var(--sage); }
-  .empty-state { text-align: center; padding: 60px 20px; }
-  .empty-icon { font-size: 48px; margin-bottom: 12px; }
-  .empty-title { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 8px; }
-  .empty-desc { color: var(--muted); font-size: 14px; }
-  .inventory-bar { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; margin-top: 4px; }
-  .inventory-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--sage), var(--mint)); }
-  .tag { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; background: var(--lime); color: var(--forest); margin-right: 4px; }
-  .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, var(--forest) 0%, var(--pine) 100%); padding: 20px; }
-  .login-card { background: white; border-radius: 20px; padding: 40px; width: 100%; max-width: 420px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
-  .login-logo { text-align: center; margin-bottom: 28px; }
-  .login-title { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 800; margin-bottom: 6px; }
-  .role-btn { width: 100%; padding: 12px; border-radius: 10px; border: 2px solid var(--border); background: white; cursor: pointer; text-align: left; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; transition: all .15s; display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-  .role-btn:hover { border-color: var(--sage); background: #f0faf2; }
-  .role-btn.selected { border-color: var(--sage); background: #f0faf2; }
-  .cart-item { display: flex; align-items: center; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--border); }
-  .cart-item-img { width: 56px; height: 56px; background: linear-gradient(135deg, var(--lime), var(--sage)); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0; }
-  .qty-ctrl { display: flex; align-items: center; gap: 8px; }
-  .qty-btn { width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border); background: white; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; }
-  .qty-btn:hover { background: var(--bg); }
-`;
-
-// ─── Data ──────────────────────────────────────────────────────────────────
-const PRODUCTS = [
-  { id: 1, name: "Organic Basmati Rice", farmer: "Ravi Kumar Farm", price: 85, unit: "kg", icon: "🌾", category: "Grains", rating: "4.8", origin: "Punjab", certified: true, stock: 450, desc: "Premium long-grain basmati rice grown without pesticides in the fertile fields of Punjab. Aged 2 years for superior aroma." },
-  { id: 2, name: "Alphonso Mangoes", farmer: "Devgad Farms", price: 320, unit: "dozen", icon: "🥭", category: "Fruits", rating: "4.9", origin: "Ratnagiri", certified: true, stock: 120, desc: "GI-tagged Alphonso mangoes from Ratnagiri. Hand-picked at perfect ripeness for maximum sweetness." },
-  { id: 3, name: "Fresh Spinach", farmer: "GreenLeaf Co-op", price: 28, unit: "bundle", icon: "🥬", category: "Vegetables", rating: "4.6", origin: "Nashik", certified: false, stock: 80, desc: "Tender baby spinach leaves harvested daily at dawn. Perfect for salads and cooking." },
-  { id: 4, name: "Turmeric Powder", farmer: "Spice Valley", price: 160, unit: "500g", icon: "🌿", category: "Spices", rating: "4.7", origin: "Erode", certified: true, stock: 300, desc: "High-curcumin Lakadong turmeric, stone-ground to preserve natural oils and potency." },
-  { id: 5, name: "Red Onions", farmer: "Nasik Onion Farm", price: 35, unit: "kg", icon: "🧅", category: "Vegetables", rating: "4.5", origin: "Nashik", certified: false, stock: 600, desc: "Large, pungent red onions perfect for Indian cooking. Directly from Nashik's best farms." },
-  { id: 6, name: "A2 Cow Ghee", farmer: "Gir Gaushala", price: 850, unit: "liter", icon: "🫙", category: "Dairy", rating: "5.0", origin: "Gujarat", certified: true, stock: 90, desc: "Traditionally churned ghee from free-grazing Gir cows. Bilona method ensures premium quality." },
-  { id: 7, name: "Finger Millet", farmer: "Sahyadri Organics", price: 72, unit: "kg", icon: "🌱", category: "Grains", rating: "4.7", origin: "Karnataka", certified: true, stock: 200, desc: "Nutrient-dense ragi (finger millet) grown using traditional methods in Karnataka highlands." },
-  { id: 8, name: "Moringa Leaves", farmer: "TropiFarm", price: 45, unit: "250g", icon: "🍃", category: "Herbs", rating: "4.8", origin: "Tamil Nadu", certified: true, stock: 150, desc: "Freshly dried moringa drumstick leaves, packed with nutrients. Sustainably harvested." },
+const SEED_PRODUCTS = [
+  { id:1, name:"Organic Basmati Rice", farmer:"Ravi Kumar Farm", farmerName:"Ravi Kumar Farm", price:85, unit:"kg", icon:"🌾", category:"Grains", rating:"4.8", origin:"Punjab", certified:true, stock:450, desc:"Premium long-grain basmati rice grown without pesticides. Aged 2 years for superior aroma.", image:null },
+  { id:2, name:"Alphonso Mangoes", farmer:"Devgad Farms", farmerName:"Devgad Farms", price:320, unit:"dozen", icon:"🥭", category:"Fruits", rating:"4.9", origin:"Ratnagiri", certified:true, stock:120, desc:"GI-tagged Alphonso mangoes from Ratnagiri. Hand-picked at perfect ripeness.", image:null },
+  { id:3, name:"Fresh Spinach", farmer:"GreenLeaf Co-op", farmerName:"GreenLeaf Co-op", price:28, unit:"bundle", icon:"🥬", category:"Vegetables", rating:"4.6", origin:"Nashik", certified:false, stock:80, desc:"Tender baby spinach leaves harvested daily at dawn. Perfect for salads and cooking.", image:null },
+  { id:4, name:"Turmeric Powder", farmer:"Spice Valley", farmerName:"Spice Valley", price:160, unit:"500g", icon:"🌿", category:"Spices", rating:"4.7", origin:"Erode", certified:true, stock:300, desc:"High-curcumin Lakadong turmeric, stone-ground to preserve natural oils.", image:null },
+  { id:5, name:"Red Onions", farmer:"Nasik Onion Farm", farmerName:"Nasik Onion Farm", price:35, unit:"kg", icon:"🧅", category:"Vegetables", rating:"4.5", origin:"Nashik", certified:false, stock:600, desc:"Large, pungent red onions perfect for Indian cooking.", image:null },
+  { id:6, name:"A2 Cow Ghee", farmer:"Gir Gaushala", farmerName:"Gir Gaushala", price:850, unit:"liter", icon:"🫙", category:"Dairy", rating:"5.0", origin:"Gujarat", certified:true, stock:90, desc:"Traditionally churned ghee from free-grazing Gir cows. Bilona method.", image:null },
+  { id:7, name:"Finger Millet", farmer:"Sahyadri Organics", farmerName:"Sahyadri Organics", price:72, unit:"kg", icon:"🌱", category:"Grains", rating:"4.7", origin:"Karnataka", certified:true, stock:200, desc:"Nutrient-dense ragi grown using traditional methods in Karnataka highlands.", image:null },
+  { id:8, name:"Moringa Leaves", farmer:"TropiFarm", farmerName:"TropiFarm", price:45, unit:"250g", icon:"🍃", category:"Herbs", rating:"4.8", origin:"Tamil Nadu", certified:true, stock:150, desc:"Freshly dried moringa drumstick leaves, packed with nutrients.", image:null },
 ];
 
-const BATCHES = [
-  { id: "BCH-001", product: "Organic Basmati Rice", qty: "500 kg", date: "2024-03-01", status: "delivered", price: 42500 },
-  { id: "BCH-002", product: "Turmeric Powder", qty: "200 kg", date: "2024-03-05", status: "in_transit", price: 32000 },
-  { id: "BCH-003", product: "Fresh Spinach", qty: "80 bundles", date: "2024-03-08", status: "processing", price: 2240 },
-  { id: "BCH-004", product: "Finger Millet", qty: "350 kg", date: "2024-03-10", status: "pending", price: 25200 },
+const SEED_SHIPMENTS = [
+  { id:"SHP-101", shipmentCode:"SHP-101", batchCode:"BCH-001", fromLocation:"Punjab", toLocation:"Delhi Hub", status:"DELIVERED", eta:"2024-03-07", weight:"500 kg", updatedAt:"2024-03-07 14:00" },
+  { id:"SHP-102", shipmentCode:"SHP-102", batchCode:"BCH-002", fromLocation:"Erode", toLocation:"Mumbai DC", status:"IN_TRANSIT", eta:"2024-03-12", weight:"200 kg", updatedAt:"2024-03-10 09:30" },
+  { id:"SHP-103", shipmentCode:"SHP-103", batchCode:"BCH-004", fromLocation:"Karnataka", toLocation:"Bangalore DC", status:"PENDING", eta:"2024-03-15", weight:"350 kg", updatedAt:"2024-03-10 11:00" },
 ];
 
-const SHIPMENTS = [
-  { id: "SHP-101", batch: "BCH-001", from: "Punjab", to: "Delhi Hub", status: "delivered", eta: "2024-03-07", weight: "500 kg" },
-  { id: "SHP-102", batch: "BCH-002", from: "Erode", to: "Mumbai DC", status: "in_transit", eta: "2024-03-12", weight: "200 kg" },
-  { id: "SHP-103", batch: "BCH-004", from: "Karnataka", to: "Bangalore DC", status: "pending", eta: "2024-03-15", weight: "350 kg" },
-];
+// ─── Storage Helpers ──────────────────────────────────────────────────────────
+const storage = {
+  get: (k, def) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch { return def; } },
+  set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
 
-const USERS_LIST = [
-  { id: 1, name: "Ravi Kumar", email: "ravi@farm.in", role: "Farmer", status: "active", joined: "Jan 2024" },
-  { id: 2, name: "Priya Sharma", email: "priya@dist.in", role: "Distributor", status: "active", joined: "Feb 2024" },
-  { id: 3, name: "Amit Patel", email: "amit@retail.in", role: "Retailer", status: "active", joined: "Feb 2024" },
-  { id: 4, name: "Meera Nair", email: "meera@email.in", role: "Consumer", status: "active", joined: "Mar 2024" },
-  { id: 5, name: "Suresh Reddy", email: "suresh@farm.in", role: "Farmer", status: "inactive", joined: "Jan 2024" },
-  { id: 6, name: "Kavita Singh", email: "kavita@retail.in", role: "Retailer", status: "active", joined: "Mar 2024" },
-];
+// ─── Role-specific FarmBot data ──────────────────────────────────────────────
+const FARMBOT_DATA = {
+  farmer: [
+    { q: "How do I add a new product?", a: "Go to 'Add Product' in the sidebar, fill in name, category, price, stock and origin, then click Submit. Your product will immediately appear in the marketplace." },
+    { q: "How do I create a batch?", a: "Navigate to 'Create Batch', select one of your products from the dropdown, enter quantity and price, then submit. The batch will appear in 'My Batches'." },
+    { q: "How do I generate a QR code?", a: "Go to 'QR Codes', select a batch from the dropdown, and click Generate. A scannable QR code will appear that you can download." },
+    { q: "How do I track my revenue?", a: "Check your 'Analytics' page for revenue trends, product mix breakdown, and delivery rates across all your batches." },
+    { q: "When do I get paid?", a: "Payments are processed within 3–5 business days after the retailer confirms delivery of your batch." },
+  ],
+  distributor: [
+    { q: "How do I start a shipment?", a: "On the Shipments page, find a PENDING shipment and click 'Start Transit'. The status will update to IN_TRANSIT immediately." },
+    { q: "How do I mark a delivery complete?", a: "Find the IN_TRANSIT shipment and click 'Mark Delivered'. This notifies the retailer and updates the supply chain." },
+    { q: "Where can I see all shipments?", a: "The Shipments page lists all your assigned shipments with status, route, weight and ETA." },
+    { q: "How is tracking updated?", a: "Each status change (Pending → In Transit → Delivered) is timestamped and visible to all parties in the supply chain." },
+    { q: "What if a shipment is delayed?", a: "Update the status notes on the shipment record and contact the farmer and retailer through the help center." },
+  ],
+  retailer: [
+    { q: "How do I add inventory?", a: "Go to 'Inventory' and click '+ Add Item'. Fill in the product details and it will be added to your stock table." },
+    { q: "How do I process an order?", a: "Go to 'Orders', find the PENDING order, and click 'Process'. Then 'Ship' when dispatched, and 'Delivered' on completion." },
+    { q: "How do I reorder stock?", a: "On the Inventory page, click 'Reorder' next to a low-stock item, enter the quantity, and submit the reorder request." },
+    { q: "Can I edit my product listings?", a: "Yes! On 'Product Listings', click 'Edit' on any product to modify its name, price, or description." },
+    { q: "How do I see low stock alerts?", a: "Your dashboard shows a Low Stock Alerts card. Items with stock below 100 units are highlighted in red." },
+  ],
+  consumer: [
+    { q: "How do I place an order?", a: "Browse the Marketplace, add items to your cart, then go to Cart and click 'Proceed to Checkout'. Fill in delivery details and confirm." },
+    { q: "How do I track my order?", a: "Go to 'My Orders' in the sidebar to see all your past orders and their current status." },
+    { q: "Are products organic certified?", a: "Products with the 🌿 badge are FSSAI-certified organic. You can verify by scanning the QR code on the packaging." },
+    { q: "How do I scan a product QR?", a: "Use the 'QR Scan' page in your sidebar. You can point your camera at a product QR code to see its full supply chain journey." },
+    { q: "Can I remove items from cart?", a: "Yes! In your Cart page, click the ✕ button next to any item to remove it, or use − to reduce quantity." },
+  ],
+};
 
-
-
-// ─── Chatbot Widget ──────────────────────────────────────────────────────────
+// ─── ChatBot ──────────────────────────────────────────────────────────────────
 function ChatBot() {
+  const { user } = useAuth();
+  const role = user?.role || "consumer";
+  const questions = FARMBOT_DATA[role] || FARMBOT_DATA.consumer;
   const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState([
-    { from: "bot", text: "Hi! I'm FarmBot 🌱 How can I help you today?" },
-    { from: "bot", text: "I can help with orders, batches, or supply chain queries." }
+    { from: "bot", text: `Hi! I'm FarmBot 🌱 I'm here to help you as a ${role}. Click a question below or type your own!` },
   ]);
   const [input, setInput] = useState("");
-  const botReplies = [
-    "I'm checking that for you... ✅",
-    "Your batch BCH-002 is currently in transit and expected to arrive by Mar 12.",
-    "To trace a product, scan the QR code on the packaging.",
-    "Certified organic products are marked with the 🌿 badge.",
-    "For urgent issues, please raise a support ticket."
-  ];
-  const send = () => {
-    if (!input.trim()) return;
-    setMsgs(m => [...m, { from: "user", text: input }]);
-    const reply = botReplies[Math.floor(Math.random() * botReplies.length)];
-    setTimeout(() => setMsgs(m => [...m, { from: "bot", text: reply }]), 800);
+
+  const sendMsg = (text) => {
+    if (!text.trim()) return;
+    const found = questions.find(q => q.q === text);
+    const reply = found ? found.a : "I'm not sure about that. Please check the Help Center or contact support.";
+    setMsgs(m => [...m, { from: "user", text }, { from: "bot", text: reply }]);
     setInput("");
   };
+
   return (
     <div className="chatbot">
       {open && (
         <div className="chatbot-panel">
           <div className="chatbot-header">
-            <span style={{ fontSize: 20 }}>🤖</span>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 14 }}>FarmBot AI</div>
-              <div style={{ fontSize: 11, opacity: 0.7 }}>Always online</div>
-            </div>
+            <span style={{ fontSize:14, fontWeight:700 }}></span>
+            <div><div style={{ fontWeight: 700, fontSize: 14 }}>FarmBot</div><div style={{ fontSize: 11, opacity: 0.7 }}>Always online</div></div>
             <button onClick={() => setOpen(false)} style={{ marginLeft: "auto", background: "none", border: "none", color: "white", cursor: "pointer", fontSize: 18 }}>✕</button>
           </div>
-          <div className="chatbot-messages">
+          <div className="chatbot-messages" id="chatbot-msgs">
             {msgs.map((m, i) => <div key={i} className={`chat-msg ${m.from}`}>{m.text}</div>)}
           </div>
+          <div style={{ padding: "8px 10px", borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 4 }}>
+            {questions.map((q, i) => (
+              <button key={i} onClick={() => sendMsg(q.q)}
+                style={{ background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 6, padding: "5px 8px", fontSize: 11, cursor: "pointer", textAlign: "left", color: "var(--ink)" }}>
+                {q.q}
+              </button>
+            ))}
+          </div>
           <div className="chatbot-input">
-            <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && send()} placeholder="Type a message..." />
-            <button className="btn btn-primary btn-sm" onClick={send}>↑</button>
+            <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && sendMsg(input)} placeholder="Type a message..." />
+            <button className="btn btn-primary btn-sm" onClick={() => sendMsg(input)}>↑</button>
           </div>
         </div>
       )}
-      <button className="chatbot-btn" onClick={() => setOpen(o => !o)}>🤖</button>
+      <button className="chatbot-btn" onClick={() => setOpen(o => !o)}>💬</button>
     </div>
   );
 }
 
-// ─── Sidebar ─────────────────────────────────────────────────────────────────
+// ─── Sidebar ──────────────────────────────────────────────────────────────────
 function Sidebar({ role, nav, user }) {
   const { path } = useRouter();
-  const icons = { "🏠": true, "📦": true, "🚚": true, "📊": true, "👥": true };
+  const { setUser } = useAuth();
+  const { clearCart } = useCart();
+  const handleSignOut = () => {
+    localStorage.removeItem("fcx_token");
+    localStorage.removeItem("role");
+    setUser(null);
+    clearCart();
+    window.location.hash = "/login";
+  };
   return (
     <div className="sidebar">
       <div className="sidebar-logo">
-        <div className="sidebar-logo-icon">🌾</div>
+        <div className="sidebar-logo-icon">F</div>
         <div>
           <div className="sidebar-logo-text">FarmChainX</div>
           <div className="sidebar-logo-sub">{role} Portal</div>
@@ -451,73 +175,88 @@ function Sidebar({ role, nav, user }) {
       ))}
       <div className="sidebar-footer">
         <div className="sidebar-user">
-          <div className="sidebar-avatar">{user.name[0]}</div>
+          <div className="sidebar-avatar">{(user?.name || "U")[0].toUpperCase()}</div>
           <div className="sidebar-user-info">
-            <div className="sidebar-user-name">{user.name}</div>
+            <div className="sidebar-user-name">{user?.name || "User"}</div>
             <div className="sidebar-user-role">{role}</div>
           </div>
-          <Link to="/login"><span style={{ cursor: "pointer", opacity: 0.5, fontSize: 16 }}>↩</span></Link>
         </div>
+        <button onClick={handleSignOut} style={{ marginTop: 10, width: "100%", padding: "8px", borderRadius: 8, background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", color: "rgba(255,255,255,0.8)", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
+          ↩ Sign Out
+        </button>
       </div>
     </div>
   );
 }
 
-// ─── Topbar ───────────────────────────────────────────────────────────────────
+// ─── Topbar ──────────────────────────────────────────────────────────────────
 function Topbar({ title, cartCount = 0 }) {
   return (
     <div className="topbar">
       <div className="topbar-title">{title}</div>
       <div className="topbar-actions">
-        <button className="topbar-btn" title="Search">🔍</button>
-        <button className="topbar-btn" title="Notifications">
-          🔔<span className="badge">3</span>
-        </button>
+        
         {cartCount > 0 && (
           <Link to="/consumer/cart">
             <button className="topbar-btn">🛒<span className="badge">{cartCount}</span></button>
           </Link>
         )}
-        <button className="topbar-btn">⚙️</button>
       </div>
     </div>
   );
 }
 
-// ─── Public Nav ───────────────────────────────────────────────────────────────
-function PublicNav({ cartCount }) {
+// ─── Public Nav ──────────────────────────────────────────────────────────────
+function PublicNav({ cartCount = 0 }) {
   const { path } = useRouter();
+  const { user, setUser } = useAuth();
+  const { clearCart } = useCart();
+  const role = user?.role;
+
+  const handleSignOut = () => {
+    localStorage.removeItem("fcx_token");
+    localStorage.removeItem("role");
+    setUser(null);
+    clearCart();
+    window.location.hash = "/login";
+  };
+
   return (
     <nav className="pub-nav">
-      <Link to="/">
-        <div className="pub-nav-logo">🌾 FarmChainX</div>
-      </Link>
+      <Link to="/"><div className="pub-nav-logo">FarmChainX</div></Link>
       <div className="pub-nav-links">
-        {[["Home", "/"], ["Marketplace", "/marketplace"], ["About", "/about"], ["Help", "/help"]].map(([l, h]) => (
+        {[["Home", "/"], ["Marketplace", "/marketplace"], ["Help", "/help"]].map(([l, h]) => (
           <Link key={h} to={h}><div className={`pub-nav-link ${path === h ? "active" : ""}`}>{l}</div></Link>
         ))}
       </div>
       <div className="pub-nav-actions">
-        <Link to="/consumer/cart">
-          <button className="btn btn-secondary btn-sm">🛒 {cartCount > 0 ? `(${cartCount})` : "Cart"}</button>
-        </Link>
-        <Link to="/login">
-          <button className="btn btn-primary btn-sm">Sign In →</button>
-        </Link>
+        {(role === "consumer" || role === "retailer") && (
+          <Link to="/consumer/cart">
+            <button className="btn btn-secondary btn-sm">
+  {cartCount > 0 ? `Cart (${cartCount})` : "Cart"}
+</button>
+          </Link>
+        )}
+        {user ? (
+          <button className="btn btn-secondary btn-sm" onClick={handleSignOut}>Sign Out</button>
+        ) : (
+          <>
+            <Link to="/register"><button className="btn btn-secondary btn-sm">Register</button></Link>
+            <Link to="/login"><button className="btn btn-primary btn-sm">Sign In →</button></Link>
+          </>
+        )}
       </div>
     </nav>
   );
 }
 
-// ─── Mini Charts ──────────────────────────────────────────────────────────────
+// ─── Bar Chart ────────────────────────────────────────────────────────────────
 function BarChart({ data, labels }) {
-  const max = Math.max(...data);
+  const max = Math.max(...data, 1);
   return (
     <div>
       <div className="chart-bar-wrap">
-        {data.map((v, i) => (
-          <div key={i} className="chart-bar" style={{ height: `${(v / max) * 100}%` }} title={v} />
-        ))}
+        {data.map((v, i) => <div key={i} className="chart-bar" style={{ height: `${(v / max) * 100}%` }} title={v} />)}
       </div>
       <div className="chart-labels">
         {labels.map((l, i) => <div key={i} className="chart-label">{l}</div>)}
@@ -526,226 +265,303 @@ function BarChart({ data, labels }) {
   );
 }
 
-// ─── HOME ─────────────────────────────────────────────────────────────────────
+// ─── Product Image Component ──────────────────────────────────────────────────
+function ProductImage({ product, size = 52, height = 160 }) {
+  if (product.image) {
+    return <img src={product.image} alt={product.name} style={{ width: "100%", height, objectFit: "cover" }} />;
+  }
+  return <span style={{ fontSize: size }}>{CATEGORY_ICONS[product.category] || product.icon || "🌾"}</span>;
+}
+
+// ─── Status Pill Helper ───────────────────────────────────────────────────────
+function statusClass(s) {
+  const u = (s || "").toUpperCase();
+  return u === "DELIVERED" ? "pill-green" : u === "IN_TRANSIT" ? "pill-blue" : u === "PROCESSING" || u === "SHIPPED" ? "pill-yellow" : u === "PENDING" ? "pill-gray" : "pill-gray";
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// HOME PAGE
+// ══════════════════════════════════════════════════════════════════════════════
 function HomePage() {
+  const { cartItems } = useCart();
   return (
     <div>
-      <PublicNav cartCount={0} />
+      <PublicNav cartCount={cartItems.length} />
       <div className="hero">
-        <div style={{ fontSize: 48, marginBottom: 16 }}>🌾</div>
-        <div className="hero-title">Transparent Farm-to-Fork<br />Supply Chain</div>
-        <div className="hero-sub">FarmChainX connects farmers, distributors, retailers and consumers through blockchain-verified traceability. Know exactly where your food comes from.</div>
+        
+        <div className="hero-title">Transparent Farm-to-Fork Supply Chain</div>
+        <div className="hero-sub">FarmChainX connects farmers, distributors, retailers and consumers through blockchain-verified traceability.</div>
         <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
           <Link to="/marketplace"><button className="btn btn-primary btn-lg">Browse Marketplace</button></Link>
           <Link to="/login"><button className="btn" style={{ background: "rgba(255,255,255,0.15)", color: "white", fontSize: 16, padding: "14px 28px", borderRadius: 8, border: "2px solid rgba(255,255,255,0.3)", cursor: "pointer" }}>Get Started →</button></Link>
         </div>
       </div>
-
-      {/* Chain flow */}
       <div style={{ background: "white", padding: "48px 32px" }}>
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <h2 style={{ fontFamily: "Syne", fontSize: 28, fontWeight: 800 }}>How It Works</h2>
           <p style={{ color: "var(--muted)", marginTop: 8 }}>End-to-end transparency from seed to shelf</p>
         </div>
         <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-          {[
-            ["🧑‍🌾", "Farmer", "Creates batch, logs harvest data"],
-            ["🚛", "Distributor", "Ships and tracks logistics"],
-            ["🏪", "Retailer", "Lists on platform with trace"],
-            ["👨‍👩‍👧", "Consumer", "Scans QR, verifies origin"],
-          ].map(([icon, label, desc], i, arr) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          {[["👨","Farmer","Creates & logs harvest"],["→","Distributor","Ships and tracks"],["→","Retailer","Lists with trace"],["→","Consumer","Scans QR, verifies"]].map(([icon,label,desc],i,arr)=>(
+            <div key={i} style={{ display:"flex", alignItems:"center", gap:16 }}>
               <div className="chain-step">
-                <div className="chain-icon" style={{ background: `hsl(${140 - i * 15}, 50%, ${88 - i * 4}%)` }}>{icon}</div>
+                <div className="chain-icon" style={{ background:`hsl(${140-i*15},50%,${88-i*4}%)` }}>{icon}</div>
                 <div className="chain-label">{label}</div>
-                <div style={{ fontSize: 12, color: "var(--muted)", textAlign: "center", maxWidth: 100 }}>{desc}</div>
+                <div style={{ fontSize:12, color:"var(--muted)", textAlign:"center", maxWidth:100 }}>{desc}</div>
               </div>
-              {i < arr.length - 1 && <div className="chain-arrow">→</div>}
+              {i<arr.length-1 && <div className="chain-arrow">→</div>}
             </div>
           ))}
         </div>
       </div>
-
-      <div className="feature-grid" style={{ background: "var(--bg)" }}>
-        {[
-          ["🔗", "Blockchain Verified", "Every transaction recorded immutably. Full audit trail from farm to fork."],
-          ["📱", "QR Traceability", "Consumers scan QR codes to instantly see product journey and certifications."],
-          ["📊", "Real-time Analytics", "Farmers and distributors get actionable insights on sales and logistics."],
-          ["🌿", "Certified Organic", "Verified certifications displayed prominently for conscious consumers."],
-          ["🤖", "AI Assistant", "FarmBot answers queries 24/7 for all stakeholders in the chain."],
-          ["🛒", "Seamless Commerce", "Integrated marketplace with secure payments and order tracking."],
-        ].map(([icon, title, desc]) => (
-          <div className="feature-card" key={title}>
-            <div className="feature-icon">{icon}</div>
-            <div className="feature-title">{title}</div>
-            <div className="feature-desc">{desc}</div>
-          </div>
+      <div className="feature-grid" style={{ background:"var(--bg)" }}>
+        {[["","Blockchain Verified","Every transaction recorded immutably."],["","QR Traceability","Scan to see full product journey."],["","Real-time Analytics","Actionable insights for all roles."],["","Certified Organic","Verified certifications displayed."],[""," Assistant","FarmBot answers queries 24/7."],["","Seamless Commerce","Integrated marketplace with order tracking."]].map(([icon,title,desc])=>(
+          <div className="feature-card" key={title}><div className="feature-icon">{icon}</div><div className="feature-title">{title}</div><div className="feature-desc">{desc}</div></div>
         ))}
       </div>
-
-      {/* Stats */}
-      <div style={{ background: "var(--forest)", color: "white", padding: "48px 32px", textAlign: "center" }}>
-        <h2 style={{ fontFamily: "Syne", fontSize: 28, fontWeight: 800, marginBottom: 32 }}>Trusted by the Ecosystem</h2>
-        <div style={{ display: "flex", justifyContent: "center", gap: 60, flexWrap: "wrap" }}>
-          {[["1,240+", "Farmers"], ["380+", "Distributors"], ["920+", "Retailers"], ["48,000+", "Consumers"]].map(([v, l]) => (
-            <div key={l}>
-              <div style={{ fontFamily: "Syne", fontSize: 36, fontWeight: 800, color: "var(--mint)" }}>{v}</div>
-              <div style={{ opacity: 0.7, marginTop: 4 }}>{l}</div>
-            </div>
+      <div style={{ background:"var(--forest)", color:"white", padding:"48px 32px", textAlign:"center" }}>
+        <h2 style={{ fontFamily:"Syne", fontSize:28, fontWeight:800, marginBottom:32 }}>Trusted by the Ecosystem</h2>
+        <div style={{ display:"flex", justifyContent:"center", gap:60, flexWrap:"wrap" }}>
+          {[["1,240+","Farmers"],["380+","Distributors"],["920+","Retailers"],["48,000+","Consumers"]].map(([v,l])=>(
+            <div key={l}><div style={{ fontFamily:"Syne", fontSize:36, fontWeight:800, color:"var(--mint)" }}>{v}</div><div style={{ opacity:0.7, marginTop:4 }}>{l}</div></div>
           ))}
         </div>
       </div>
-
-      <div style={{ padding: "32px", textAlign: "center", borderTop: "1px solid var(--border)", background: "white", color: "var(--muted)", fontSize: 13 }}>
-        © 2024 FarmChainX · Transparent Agricultural Supply Chain · Made with 🌱
-      </div>
+      <div style={{ padding:"24px 32px", textAlign:"center", borderTop:"1px solid var(--border)", background:"white", color:"var(--muted)", fontSize:13 }}>© 2024 FarmChainX · Transparent Agricultural Supply Chain</div>
       <ChatBot />
     </div>
   );
 }
 
-// ─── LOGIN ────────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// LOGIN / REGISTER
+// ══════════════════════════════════════════════════════════════════════════════
 function LoginPage() {
   const { setUser } = useAuth();
-  const [selectedRole, setSelectedRole] = useState("farmer");
-  const [email, setEmail] = useState("demo@farmchainx.in");
-  const [password, setPassword] = useState("demo1234");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const { navigate } = useRouter();
 
-  const roleMap = {
-    farmer: { name: "Ravi Kumar", icon: "🧑‍🌾", dest: "/farmer/dashboard" },
-    distributor: { name: "Priya Sharma", icon: "🚛", dest: "/distributor/dashboard" },
-    retailer: { name: "Amit Patel", icon: "🏪", dest: "/retailer/dashboard" },
-    consumer: { name: "Meera Nair", icon: "👤", dest: "/consumer/cart" },
+  const ROLE_DEST = { FARMER:"/farmer/dashboard", DISTRIBUTOR:"/distributor/dashboard", RETAILER:"/retailer/dashboard", CONSUMER:"/marketplace" };
 
-  };
-
-  const handleLogin = () => {
-    const r = roleMap[selectedRole];
-    setUser({ name: r.name, role: selectedRole, icon: r.icon });
-    navigate(r.dest);
+  const handleLogin = async () => {
+    if (!email || !password) { setError("Please enter email and password"); return; }
+    setLoading(true); setError("");
+    try {
+      const res = await fetch("http://localhost:8080/api/auth/login", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), password: password.trim() }), mode: "cors",
+      });
+      const json = await res.json();
+      if (!res.ok) { setError(json.message || "Invalid credentials"); return; }
+      const data = json.data;
+      localStorage.setItem("fcx_token", data.token);
+      localStorage.setItem("role", data.role.toLowerCase());
+      localStorage.setItem("farmerName", data.name);
+      setUser({ name: data.name, role: data.role.toLowerCase(), email: data.email, id: data.id });
+      navigate(ROLE_DEST[data.role] || "/");
+    } catch {
+      setError("⚠️ Cannot connect to server. Make sure the backend is running on port 8080.");
+    } finally { setLoading(false); }
   };
 
   return (
-    <div className="login-wrap">
-      <div className="login-card">
-        <div className="login-logo">
-          <div style={{ fontSize: 40 }}>🌾</div>
-          <div className="login-title">FarmChainX</div>
-          <div style={{ color: "var(--muted)", fontSize: 14 }}>Sign in to your account</div>
-        </div>
-        <div style={{ marginBottom: 20 }}>
-          <div className="form-label" style={{ marginBottom: 10 }}>Select your role</div>
-          {Object.entries(roleMap).map(([k, v]) => (
-            <button key={k} className={`role-btn ${selectedRole === k ? "selected" : ""}`} onClick={() => setSelectedRole(k)}>
-              <span style={{ fontSize: 20 }}>{v.icon}</span>
-              <span style={{ textTransform: "capitalize", fontWeight: 600 }}>{k}</span>
-              {selectedRole === k && <span style={{ marginLeft: "auto", color: "var(--sage)" }}>✓</span>}
-            </button>
-          ))}
-        </div>
-        <div className="form-group">
-          <label className="form-label">Email</label>
-          <input className="form-input" value={email} onChange={e => setEmail(e.target.value)} />
-        </div>
-        <div className="form-group">
-          <label className="form-label">Password</label>
-          <input className="form-input" type="password" value={password} onChange={e => setPassword(e.target.value)} />
-        </div>
-        <button className="btn btn-primary w-full btn-lg" style={{ marginTop: 8 }} onClick={handleLogin}>
-          Sign In as {selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1)} →
-        </button>
-        <div style={{ textAlign: "center", marginTop: 16, fontSize: 13, color: "var(--muted)" }}>
-          Demo credentials pre-filled. Just click Sign In.
+    <div style={{ minHeight:"100vh", display:"flex", background:"linear-gradient(135deg, var(--forest) 0%, var(--pine) 60%, var(--sage) 100%)" }}>
+      <div style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"center", padding:"60px", color:"white" }} className="hide-mobile">
+        <h1 style={{ fontFamily:"Syne", fontSize:52, fontWeight:800, marginBottom:20, lineHeight:1.05, letterSpacing:"-1px" }}>FarmChainX</h1>
+  <p style={{ fontSize:18, opacity:0.75, maxWidth:380, lineHeight:1.8, fontWeight:400 }}>
+    A transparent agricultural supply chain platform connecting farmers, distributors, retailers and consumers.
+  </p>
+      </div>
+      <div style={{ width:460, display:"flex", alignItems:"center", justifyContent:"center", padding:32, background:"rgba(255,255,255,0.07)", backdropFilter:"blur(10px)" }}>
+        <div style={{ background:"white", borderRadius:20, padding:40, width:"100%", maxWidth:400, boxShadow:"0 20px 60px rgba(0,0,0,0.25)" }}>
+          <div style={{ textAlign:"center", marginBottom:28 }}>
+            
+            <h2 style={{ fontFamily:"Syne", fontSize:24, fontWeight:800, marginBottom:6 }}>Welcome Back</h2>
+            <p style={{ color:"var(--muted)", fontSize:14 }}>Sign in to your FarmChainX account</p>
+          </div>
+          {error && <div style={{ background:"#fee2e2", color:"#991b1b", padding:"12px 16px", borderRadius:10, marginBottom:20, fontSize:13 }}>⚠️ {error}</div>}
+          <div className="form-group"><label className="form-label">Email Address</label>
+            <input className="form-input" type="email" placeholder="Enter your email" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleLogin()} /></div>
+          <div className="form-group"><label className="form-label">Password</label>
+            <input className="form-input" type="password" placeholder="Enter your password" value={password} onChange={e=>setPassword(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleLogin()} /></div>
+          <button className="btn btn-primary w-full btn-lg" style={{ marginTop:8, borderRadius:10 }} onClick={handleLogin} disabled={loading}>
+            {loading ? "Signing in..." : "Sign In"}
+          </button>
+          <div style={{ textAlign:"center", marginTop:16, fontSize:14, color:"var(--muted)" }}>
+            Don't have an account? <Link to="/register" style={{ color:"var(--sage)", fontWeight:700 }}>Register here</Link>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-// ─── MARKETPLACE ──────────────────────────────────────────────────────────────
+function RegisterPage() {
+  const { setUser } = useAuth();
+  const { navigate } = useRouter();
+  const [form, setForm] = useState({ name:"", email:"", password:"", confirmPassword:"", role:"CONSUMER" });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+  const ROLE_DEST = { FARMER:"/farmer/dashboard", DISTRIBUTOR:"/distributor/dashboard", RETAILER:"/retailer/dashboard", CONSUMER:"/marketplace" };
+  const roles = [{ value:"FARMER", label:"🧑‍🌾 Farmer" },{ value:"DISTRIBUTOR", label:"🚛 Distributor" },{ value:"RETAILER", label:"🏪 Retailer" },{ value:"CONSUMER", label:"👤 Consumer" }];
+
+  const handleRegister = async () => {
+    if (!form.name||!form.email||!form.password||!form.role) { setError("Please fill in all fields"); return; }
+    if (form.password!==form.confirmPassword) { setError("Passwords do not match"); return; }
+    if (form.password.length<6) { setError("Password must be at least 6 characters"); return; }
+    setLoading(true); setError("");
+    try {
+      const res = await fetch("http://localhost:8080/api/auth/register", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({ name:form.name.trim(), email:form.email.trim(), password:form.password, role:form.role }), mode:"cors",
+      });
+      const json = await res.json();
+      if (!res.ok) { setError(json.message||"Registration failed"); return; }
+      const data = json.data;
+      localStorage.setItem("fcx_token", data.token);
+      localStorage.setItem("role", data.role.toLowerCase());
+      localStorage.setItem("farmerName", data.name);
+      setUser({ name:data.name, role:data.role.toLowerCase(), email:data.email, id:data.id });
+      navigate(ROLE_DEST[data.role]||"/");
+    } catch { setError("⚠️ Cannot connect to server."); } finally { setLoading(false); }
+  };
+
+  return (
+    <div style={{ minHeight:"100vh", display:"flex", background:"linear-gradient(135deg, var(--forest) 0%, var(--pine) 60%, var(--sage) 100%)" }}>
+      <div style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"center", padding:"60px", color:"white" }} className="hide-mobile">
+        
+        <h1 style={{ fontFamily:"Syne", fontSize:42, fontWeight:800, marginBottom:16 }}>Join FarmChainX</h1>
+        <p style={{ fontSize:18, opacity:0.85, maxWidth:420, lineHeight:1.7, marginBottom:32 }}>Be part of India's most transparent agricultural supply chain.</p>
+      </div>
+      <div style={{ width:480, display:"flex", alignItems:"center", justifyContent:"center", padding:32, background:"rgba(255,255,255,0.07)", backdropFilter:"blur(10px)" }}>
+        <div style={{ background:"white", borderRadius:20, padding:40, width:"100%", maxWidth:420, boxShadow:"0 20px 60px rgba(0,0,0,0.25)" }}>
+          <div style={{ textAlign:"center", marginBottom:24 }}>
+            
+            <h2 style={{ fontFamily:"Syne", fontSize:22, fontWeight:800 }}>Create Account</h2>
+          </div>
+          {error && <div style={{ background:"#fee2e2", color:"#991b1b", padding:"10px 14px", borderRadius:8, marginBottom:16, fontSize:13 }}>⚠️ {error}</div>}
+          <div className="form-group"><label className="form-label">Full Name</label><input className="form-input" placeholder="Your full name" value={form.name} onChange={e=>set("name",e.target.value)} /></div>
+          <div className="form-group"><label className="form-label">Email</label><input className="form-input" type="email" placeholder="Your email" value={form.email} onChange={e=>set("email",e.target.value)} /></div>
+          <div className="form-group"><label className="form-label">Password</label><input className="form-input" type="password" placeholder="Min 6 characters" value={form.password} onChange={e=>set("password",e.target.value)} /></div>
+          <div className="form-group"><label className="form-label">Confirm Password</label><input className="form-input" type="password" placeholder="Repeat password" value={form.confirmPassword} onChange={e=>set("confirmPassword",e.target.value)} /></div>
+          <div className="form-group">
+            <label className="form-label">I am a...</label>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginTop:6 }}>
+              {roles.map(r=>(
+                <button key={r.value} onClick={()=>set("role",r.value)}
+                  style={{ padding:"10px", borderRadius:10, border:`2px solid ${form.role===r.value?"var(--sage)":"var(--border)"}`, background:form.role===r.value?"#f0faf2":"white", cursor:"pointer", fontSize:13, fontWeight:600, color:form.role===r.value?"var(--pine)":"var(--ink)" }}>
+                  {r.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <button className="btn btn-primary w-full btn-lg" style={{ borderRadius:10 }} onClick={handleRegister} disabled={loading}>
+            {loading?"Creating...":"Create Account"}
+          </button>
+          <div style={{ textAlign:"center", marginTop:14, fontSize:14, color:"var(--muted)" }}>
+            Already have an account? <Link to="/login" style={{ color:"var(--sage)", fontWeight:700 }}>Sign in</Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MARKETPLACE
+// ══════════════════════════════════════════════════════════════════════════════
 function MarketplacePage() {
   const { addToCart } = useCart();
   const { cartItems } = useCart();
+  const { allProducts } = useProducts();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
-  const categories = ["All", "Grains", "Fruits", "Vegetables", "Spices", "Dairy", "Herbs"];
-  const filtered = PRODUCTS.filter(p =>
-    (category === "All" || p.category === category) &&
-    p.name.toLowerCase().includes(search.toLowerCase())
-  );
+
+  const filtered = useMemo(() => {
+    return allProducts.filter(p => {
+      const matchCat = category === "All" || p.category === category;
+      const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase());
+      return matchCat && matchSearch;
+    });
+  }, [allProducts, category, search]);
+
   return (
     <div>
       <PublicNav cartCount={cartItems.length} />
-      <div style={{ padding: "28px 32px" }}>
+      <div style={{ padding:"28px 32px" }}>
         <div className="page-header flex items-center justify-between">
-          <div>
-            <div className="page-title">Marketplace</div>
-            <div className="page-sub">{filtered.length} products available from verified farms</div>
-          </div>
-          <div className="flex gap-2">
-            <input className="form-input" style={{ width: 220 }} placeholder="🔍 Search products..." value={search} onChange={e => setSearch(e.target.value)} />
-          </div>
+          <div><div className="page-title">Marketplace</div><div className="page-sub">{filtered.length} products from verified farms</div></div>
+          <input className="form-input" style={{ width:220 }} placeholder="🔍 Search products..." value={search} onChange={e=>setSearch(e.target.value)} />
         </div>
-        <div className="flex gap-2 mb-6" style={{ flexWrap: "wrap" }}>
-          {categories.map(c => (
-            <button key={c} className={`btn btn-sm ${category === c ? "btn-primary" : "btn-secondary"}`} onClick={() => setCategory(c)}>{c}</button>
+        <div className="flex gap-2 mb-6" style={{ flexWrap:"wrap" }}>
+          {["All",...CATEGORIES].map(c=>(
+            <button key={c} className={`btn btn-sm ${category===c?"btn-primary":"btn-secondary"}`} onClick={()=>setCategory(c)}>{c}</button>
           ))}
         </div>
-        <div className="products-grid">
-          {filtered.map(p => (
-            <div key={p.id} className="product-card">
-              <Link to={`/product/${p.id}`}>
-                <div className="product-img">
-                  {p.certified && <div className="product-badge">🌿 Certified</div>}
-                  {p.icon}
-                </div>
-                <div className="product-info">
-                  <div className="product-name">{p.name}</div>
-                  <div className="product-farmer">by {p.farmer} · {p.origin}</div>
-                  <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 10 }}>⭐ {p.rating} · In stock: {p.stock} {p.unit}</div>
-                  <div className="product-meta">
-                    <div className="product-price">₹{p.price}<span style={{ fontSize: 12, fontWeight: 400 }}>/{p.unit}</span></div>
-                    <button className="btn btn-primary btn-sm" onClick={e => { e.preventDefault(); addToCart(p); }}>+ Cart</button>
+        {filtered.length===0 ? (
+          <div className="empty-state"><div className="empty-icon">🌾</div><div className="empty-title">No products found</div></div>
+        ) : (
+          <div className="products-grid">
+            {filtered.map(p=>(
+              <div key={p.id} className="product-card">
+                <Link to={`/product/${p.id}`}>
+                  <div className="product-img">
+                    {p.certified && <div className="product-badge">🌿 Certified</div>}
+                    <ProductImage product={p} />
                   </div>
-                </div>
-              </Link>
-            </div>
-          ))}
-        </div>
+                  <div className="product-info">
+                    <div className="product-name">{p.name}</div>
+                    <div className="product-farmer">by {p.farmerName||p.farmer} · {p.origin}</div>
+                    <div style={{ fontSize:12, color:"var(--muted)", marginBottom:8 }}>⭐ {p.rating||"4.5"} · {p.category}</div>
+                    <div className="product-meta">
+                      <div className="product-price">₹{p.price}<span style={{ fontSize:12, fontWeight:400 }}>/{p.unit}</span></div>
+                      <button className="btn btn-primary btn-sm" onClick={e=>{e.preventDefault();addToCart(p);}}>+ Cart</button>
+                    </div>
+                  </div>
+                </Link>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
       <ChatBot />
     </div>
   );
 }
 
-// ─── PRODUCT DETAIL ───────────────────────────────────────────────────────────
+// ─── Product Detail ───────────────────────────────────────────────────────────
 function ProductDetailPage({ id }) {
   const { addToCart } = useCart();
   const { cartItems } = useCart();
-  const p = PRODUCTS.find(x => x.id === parseInt(id)) || PRODUCTS[0];
+  const { allProducts } = useProducts();
+  const p = allProducts.find(x => String(x.id) === String(id)) || allProducts[0];
+  if (!p) return <div style={{ padding:40, textAlign:"center" }}>Product not found. <Link to="/marketplace">← Back</Link></div>;
   return (
     <div>
       <PublicNav cartCount={cartItems.length} />
-      <div style={{ padding: "28px 32px", maxWidth: 960, margin: "0 auto" }}>
-        <Link to="/marketplace"><button className="btn btn-secondary btn-sm" style={{ marginBottom: 20 }}>← Back to Marketplace</button></Link>
-        <div className="grid-2" style={{ gap: 32 }}>
+      <div style={{ padding:"28px 32px", maxWidth:960, margin:"0 auto" }}>
+        <Link to="/marketplace"><button className="btn btn-secondary btn-sm" style={{ marginBottom:20 }}>← Back to Marketplace</button></Link>
+        <div className="grid-2" style={{ gap:32 }}>
           <div>
-            <div style={{ background: `linear-gradient(135deg, var(--lime), var(--sage))`, borderRadius: 16, height: 280, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 100 }}>
-              {p.icon}
+            <div style={{ background:"linear-gradient(135deg, var(--lime), var(--sage))", borderRadius:16, height:280, display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>
+              <ProductImage product={p} size={100} height={280} />
             </div>
-            <div style={{ marginTop: 16, padding: "16px", background: "white", borderRadius: 12, border: "1px solid var(--border)" }}>
-              <div style={{ fontWeight: 700, marginBottom: 8 }}>🔗 Supply Chain Trace</div>
+            <div style={{ marginTop:16, padding:16, background:"white", borderRadius:12, border:"1px solid var(--border)" }}>
+              <div style={{ fontWeight:700, marginBottom:8 }}>🔗 Supply Chain Journey</div>
               <div className="timeline">
                 {[
-                  { label: "Harvested at farm", meta: `${p.farmer} · ${p.origin}`, done: true },
-                  { label: "Quality tested & certified", meta: "FSSAI Lab · Batch verified", done: true },
-                  { label: "Shipped by distributor", meta: "TransAgri Logistics · Cold chain", done: true },
-                  { label: "Received at retailer", meta: "FreshMart Delhi · Mar 9", done: false },
-                  { label: "Available for purchase", meta: "Est. Mar 11", done: false, pending: true },
-                ].map((t, i) => (
+                  { label:`Harvested at ${p.farmerName||p.farmer}`, meta:`${p.origin} · ${p.certified?"FSSAI Certified":"Conventional"}`, done:true },
+                  { label:"Quality tested", meta:"Lab verified · Batch approved", done:true },
+                  { label:"Shipped by distributor", meta:"Cold chain logistics", done:true },
+                  { label:"Received at retailer", meta:"Stock updated", done:false },
+                  { label:"Available for purchase", meta:"On marketplace", done:false, pending:true },
+                ].map((t,i)=>(
                   <div className="timeline-item" key={i}>
-                    <div className={`timeline-dot ${t.done ? "done" : t.pending ? "pending" : ""}`} />
+                    <div className={`timeline-dot ${t.done?"done":t.pending?"pending":""}`} />
                     <div className="timeline-title">{t.label}</div>
                     <div className="timeline-meta">{t.meta}</div>
                   </div>
@@ -754,35 +570,27 @@ function ProductDetailPage({ id }) {
             </div>
           </div>
           <div>
-            <div className="flex gap-2 mb-4" style={{ flexWrap: "wrap" }}>
+            <div className="flex gap-2 mb-4" style={{ flexWrap:"wrap" }}>
               <span className="tag">{p.category}</span>
-              {p.certified && <span className="tag" style={{ background: "#dcfce7", color: "#15803d" }}>🌿 Organic Certified</span>}
-              <span className="tag" style={{ background: "#dbeafe", color: "#1d4ed8" }}>FSSAI</span>
+              {p.certified && <span className="tag" style={{ background:"#dcfce7", color:"#15803d" }}>🌿 Certified</span>}
             </div>
-            <h1 style={{ fontFamily: "Syne", fontSize: 28, fontWeight: 800, marginBottom: 8 }}>{p.name}</h1>
-            <div style={{ color: "var(--muted)", marginBottom: 4 }}>by <strong>{p.farmer}</strong></div>
-            <div style={{ marginBottom: 16 }}>⭐ {p.rating} · Origin: {p.origin}</div>
-            <div style={{ fontSize: 14, color: "var(--muted)", lineHeight: 1.7, marginBottom: 20 }}>{p.desc}</div>
-            <div style={{ fontFamily: "Syne", fontSize: 36, fontWeight: 800, color: "var(--pine)", marginBottom: 20 }}>
-              ₹{p.price}<span style={{ fontSize: 16, fontWeight: 400, color: "var(--muted)" }}>/{p.unit}</span>
+            <h1 style={{ fontFamily:"Syne", fontSize:28, fontWeight:800, marginBottom:8 }}>{p.name}</h1>
+            <div style={{ color:"var(--muted)", marginBottom:4 }}>by <strong>{p.farmerName||p.farmer}</strong></div>
+            <div style={{ marginBottom:12 }}>⭐ {p.rating||"4.5"} · Origin: {p.origin}</div>
+            <div style={{ fontSize:14, color:"var(--muted)", lineHeight:1.7, marginBottom:20 }}>{p.desc}</div>
+            <div style={{ fontFamily:"Syne", fontSize:36, fontWeight:800, color:"var(--pine)", marginBottom:20 }}>
+              ₹{p.price}<span style={{ fontSize:16, fontWeight:400, color:"var(--muted)" }}>/{p.unit}</span>
             </div>
             <div className="flex gap-3 mb-6">
-              <button className="btn btn-primary btn-lg" onClick={() => addToCart(p)}>🛒 Add to Cart</button>
+              <button className="btn btn-primary btn-lg" onClick={()=>addToCart(p)}>🛒 Add to Cart</button>
               <Link to="/consumer/cart"><button className="btn btn-outline btn-lg">Buy Now</button></Link>
             </div>
-            <div className="card card-pad" style={{ marginTop: 16 }}>
-              <div style={{ fontWeight: 700, marginBottom: 12 }}>📦 Product Details</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: 13 }}>
-                {[["In Stock", `${p.stock} ${p.unit}`], ["Batch No", "BCH-001"], ["Harvest Date", "Feb 28, 2024"], ["Expiry", "Dec 2024"]].map(([k, v]) => (
-                  <div key={k}><span style={{ color: "var(--muted)" }}>{k}:</span> <strong>{v}</strong></div>
+            <div className="card card-pad">
+              <div style={{ fontWeight:700, marginBottom:12 }}>📦 Product Details</div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, fontSize:13 }}>
+                {[["Category",p.category],["In Stock",`${p.stock} ${p.unit}`],["Origin",p.origin],["Certified",p.certified?"Yes ✅":"No"]].map(([k,v])=>(
+                  <div key={k}><span style={{ color:"var(--muted)" }}>{k}:</span> <strong>{v}</strong></div>
                 ))}
-              </div>
-            </div>
-            <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 16 }}>
-              <div className="qr-box" style={{ width: 90, height: 90, fontSize: 40 }}>▦</div>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>Scan QR to Verify</div>
-                <div style={{ fontSize: 12, color: "var(--muted)" }}>Scan the QR code on packaging to instantly verify product origin and certifications</div>
               </div>
             </div>
           </div>
@@ -793,18 +601,20 @@ function ProductDetailPage({ id }) {
   );
 }
 
-// ─── FARMER DASHBOARD ─────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// FARMER
+// ══════════════════════════════════════════════════════════════════════════════
 const FARMER_NAV = [
-  { label: "Main", items: [
-    { icon: "🏠", label: "Dashboard", href: "/farmer/dashboard" },
-    { icon: "📦", label: "My Batches", href: "/farmer/batches" },
-    { icon: "➕", label: "Create Batch", href: "/farmer/create-batch" },
-    { icon: "📊", label: "Analytics", href: "/farmer/analytics" },
-    { icon: "▦", label: "QR Codes", href: "/farmer/qr" },
+  { label:"Main", items:[
+    { icon:"⊞", label:"Dashboard", href:"/farmer/dashboard" },
+    { icon:"", label:"My Products", href:"/farmer/products" }, 
+    { icon:"◫", label:"My Batches", href:"/farmer/batches" },
+    { icon:"+", label:"Add Product", href:"/farmer/add-product" },
+    { icon:"+", label:"Create Batch", href:"/farmer/create-batch" },
+    { icon:"▣", label:"Analytics", href:"/farmer/analytics" },
+    { icon:"▣", label:"QR Codes", href:"/farmer/qr" },
   ]},
-  { label: "Account", items: [
-    { icon: "❓", label: "Help Center", href: "/help" },
-  ]},
+  { label:"Account", items:[{ icon:"?", label:"Help Center", href:"/help" }] },
 ];
 
 function FarmerLayout({ title, children }) {
@@ -812,7 +622,7 @@ function FarmerLayout({ title, children }) {
   const { cartItems } = useCart();
   return (
     <div className="app-shell">
-      <Sidebar role="Farmer" nav={FARMER_NAV} user={user || { name: "Ravi Kumar" }} />
+      <Sidebar role="Farmer" nav={FARMER_NAV} user={user||{ name:"Farmer" }} />
       <div className="main-content with-sidebar">
         <Topbar title={title} cartCount={cartItems.length} />
         <div className="page-body">{children}</div>
@@ -823,46 +633,49 @@ function FarmerLayout({ title, children }) {
 }
 
 function FarmerDashboard() {
+  const { user } = useAuth();
+  const { allProducts } = useProducts();
+  const myBatches = storage.get("demo_batches", []);
+  const myProducts = allProducts.filter(p => p.addedByFarmer);
+  const totalRevenue = myBatches.reduce((s,b)=>s+Number(b.price||0),0);
+
   return (
     <FarmerLayout title="Farmer Dashboard">
       <div className="page-header">
-        <div className="page-title">Welcome back, Ravi 👋</div>
-        <div className="page-sub">Here's what's happening with your farm today</div>
+        <div className="page-title">Welcome back, {user?.name||"Farmer"} </div>
+        <div className="page-sub">Here's your farm overview</div>
       </div>
       <div className="stats-grid">
         {[
-          { icon: "📦", label: "Active Batches", value: "12", delta: "+3 this week", up: true, bg: "#e8f5e9" },
-          { icon: "💰", label: "Revenue (Mar)", value: "₹1.2L", delta: "+18%", up: true, bg: "#fff3e0" },
-          { icon: "🚚", label: "In Transit", value: "4", delta: "2 arriving today", up: true, bg: "#e3f2fd" },
-          { icon: "⭐", label: "Avg Rating", value: "4.8", delta: "+0.2 vs last month", up: true, bg: "#fce4ec" },
-        ].map(s => (
+          { icon:"◫", label:"My Products", value:myProducts.length, bg:"#e8f5e9" },
+          { icon:"🗂️", label:"Total Batches", value:myBatches.length, bg:"#fff3e0" },
+          { icon:"💰", label:"Total Revenue", value:`₹${totalRevenue.toLocaleString("en-IN")}`, bg:"#e3f2fd" },
+          { icon:"✅", label:"Delivered", value:myBatches.filter(b=>(b.status||"").toUpperCase()==="DELIVERED").length, bg:"#fce4ec" },
+        ].map(s=>(
           <div className="stat-card" key={s.label}>
-            <div className="stat-icon" style={{ background: s.bg }}>{s.icon}</div>
+            <div className="stat-icon" style={{ background:s.bg }}>{s.icon}</div>
             <div className="stat-value">{s.value}</div>
             <div className="stat-label">{s.label}</div>
-            <div className={`stat-delta ${s.up ? "up" : "down"}`}>{s.delta}</div>
           </div>
         ))}
       </div>
       <div className="grid-2">
         <div className="card">
-          <div className="card-header"><span style={{ fontWeight: 700 }}>📊 Monthly Revenue</span></div>
-          <div className="card-body">
-            <BarChart data={[45000, 62000, 38000, 91000, 78000, 110000, 95000]} labels={["Sep","Oct","Nov","Dec","Jan","Feb","Mar"]} />
-          </div>
+          <div className="card-header"><span style={{ fontWeight:700 }}> Revenue (Monthly)</span></div>
+          <div className="card-body"><BarChart data={[45000,62000,38000,91000,78000,110000,95000]} labels={["Sep","Oct","Nov","Dec","Jan","Feb","Mar"]} /></div>
         </div>
         <div className="card">
-          <div className="card-header"><span style={{ fontWeight: 700 }}>📦 Recent Batches</span><Link to="/farmer/batches"><span style={{ fontSize: 13, color: "var(--sage)", cursor: "pointer" }}>View all →</span></Link></div>
-          <div className="card-body" style={{ padding: 0 }}>
-            {BATCHES.slice(0, 3).map(b => (
-              <div key={b.id} style={{ padding: "12px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12 }}>
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>{b.product}</div>
-                  <div style={{ fontSize: 12, color: "var(--muted)" }}>{b.id} · {b.qty}</div>
+          <div className="card-header"><span style={{ fontWeight:700 }}> Recent Batches</span><Link to="/farmer/batches"><span style={{ fontSize:13, color:"var(--sage)" }}>View all →</span></Link></div>
+          <div className="card-body" style={{ padding:0 }}>
+            {myBatches.length===0 ? (
+              <div style={{ padding:20, textAlign:"center", color:"var(--muted)", fontSize:14 }}>No batches yet. <Link to="/farmer/create-batch" style={{ color:"var(--sage)" }}>Create one →</Link></div>
+            ) : myBatches.slice(0,4).map(b=>(
+              <div key={b.id||b.batchCode} style={{ padding:"12px 20px", borderBottom:"1px solid var(--border)", display:"flex", alignItems:"center", gap:12 }}>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontWeight:600, fontSize:14 }}>{b.productName}</div>
+                  <div style={{ fontSize:12, color:"var(--muted)" }}>{b.batchCode} · {b.quantity}</div>
                 </div>
-                <span className={`pill ${b.status === "delivered" ? "pill-green" : b.status === "in_transit" ? "pill-blue" : b.status === "processing" ? "pill-yellow" : "pill-gray"}`} style={{ marginLeft: "auto" }}>
-                  {b.status.replace("_", " ")}
-                </span>
+                <span className={`pill ${statusClass(b.status)}`}>{(b.status||"pending").toLowerCase()}</span>
               </div>
             ))}
           </div>
@@ -872,31 +685,266 @@ function FarmerDashboard() {
   );
 }
 
+function FarmerAddProduct() {
+  const { refreshProducts } = useProducts();
+  const [form, setForm] = useState({ name:"", category:"Grains", price:"", unit:"kg", stock:"", origin:"", certified:false, desc:"", image:null, imagePreview:null });
+  const [msg, setMsg] = useState({ type:"", text:"" });
+  const [submitting, setSubmitting] = useState(false);
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  const handleImage = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => set("imagePreview", ev.target.result);
+    reader.readAsDataURL(file);
+    set("image", file);
+  };
+
+  const handleSubmit = () => {
+    if (!form.name||!form.price||!form.stock||!form.origin) { setMsg({ type:"error", text:"Please fill in all required fields." }); return; }
+    setSubmitting(true);
+    const existing = storage.get("products", []);
+    const newProduct = {
+      id: Date.now(),
+      name: form.name.trim(),
+      category: form.category,
+      price: Number(form.price),
+      unit: form.unit,
+      stock: Number(form.stock),
+      origin: form.origin.trim(),
+      certified: form.certified,
+      desc: form.desc.trim(),
+      icon: CATEGORY_ICONS[form.category]||"",
+      image: form.imagePreview||null,
+      farmer: localStorage.getItem("farmerName")||"My Farm",
+      farmerName: localStorage.getItem("farmerName")||"My Farm",
+      rating: "4.5",
+      addedByFarmer: true,
+    };
+    existing.unshift(newProduct);
+    storage.set("products", existing);
+    refreshProducts();
+    setMsg({ type:"success", text:`✅ "${newProduct.name}" added to marketplace!` });
+    setForm({ name:"", category:"Grains", price:"", unit:"kg", stock:"", origin:"", certified:false, desc:"", image:null, imagePreview:null });
+    setSubmitting(false);
+  };
+
+  return (
+    <FarmerLayout title="Add Product">
+      <div style={{ maxWidth:640 }}>
+        <div className="page-header"><div className="page-title">Add New Product</div><div className="page-sub">Add a product to the marketplace</div></div>
+        {msg.text && <div style={{ padding:"10px 16px", borderRadius:8, marginBottom:16, background:msg.type==="success"?"#dcfce7":"#fee2e2", color:msg.type==="success"?"#15803d":"#991b1b", fontSize:14 }}>{msg.text}</div>}
+        <div className="card card-pad">
+          <div className="form-group">
+            <label className="form-label">Product Name *</label>
+            <input className="form-input" placeholder="e.g. Organic Basmati Rice" value={form.name} onChange={e=>set("name",e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Category *</label>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:8 }}>
+              {CATEGORIES.map(cat=>(
+                <button key={cat} onClick={()=>set("category",cat)}
+                  style={{ padding:"10px 6px", borderRadius:10, border:`2px solid ${form.category===cat?"var(--sage)":"var(--border)"}`, background:form.category===cat?"#f0faf2":"white", cursor:"pointer", fontSize:12, fontWeight:600, color:form.category===cat?"var(--pine)":"var(--ink)", textAlign:"center" }}>
+                  <div style={{ fontSize:20, marginBottom:3 }}>{CATEGORY_ICONS[cat]}</div>{cat}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="grid-2">
+            <div className="form-group"><label className="form-label">Price (₹) *</label><input className="form-input" type="number" placeholder="85" value={form.price} onChange={e=>set("price",e.target.value)} /></div>
+            <div className="form-group">
+              <label className="form-label">Unit *</label>
+              <select className="form-input form-select" value={form.unit} onChange={e=>set("unit",e.target.value)}>
+                {["kg","g","liter","ml","dozen","bundle","piece","500g","250g","100g"].map(u=><option key={u}>{u}</option>)}
+              </select>
+            </div>
+            <div className="form-group"><label className="form-label">Stock *</label><input className="form-input" type="number" placeholder="500" value={form.stock} onChange={e=>set("stock",e.target.value)} /></div>
+            <div className="form-group"><label className="form-label">Origin *</label><input className="form-input" placeholder="e.g. Punjab" value={form.origin} onChange={e=>set("origin",e.target.value)} /></div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Product Image</label>
+            <input type="file" accept="image/*" onChange={handleImage} style={{ display:"none" }} id="img-upload" />
+            <label htmlFor="img-upload" style={{ display:"flex", alignItems:"center", gap:12, cursor:"pointer" }}>
+              {form.imagePreview ? (
+                <img src={form.imagePreview} alt="preview" style={{ width:80, height:80, borderRadius:10, objectFit:"cover", border:"2px solid var(--sage)" }} />
+              ) : (
+                <div style={{ width:80, height:80, borderRadius:10, border:"2px dashed var(--border)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:28 }}>{CATEGORY_ICONS[form.category]}</div>
+              )}
+              <span className="btn btn-secondary btn-sm"> Upload Image</span>
+            </label>
+          </div>
+          <div className="form-group"><label className="form-label">Description</label>
+            <textarea className="form-input" placeholder="Describe your product..." value={form.desc} onChange={e=>set("desc",e.target.value)} style={{ minHeight:80 }} />
+          </div>
+          <div className="form-group">
+            <label style={{ display:"flex", alignItems:"center", gap:10, cursor:"pointer", fontSize:14, fontWeight:500 }}>
+              <input type="checkbox" checked={form.certified} onChange={e=>set("certified",e.target.checked)} style={{ width:18, height:18, accentColor:"var(--sage)" }} />
+              🌿 Organic Certified (FSSAI)
+            </label>
+          </div>
+          {/* Preview */}
+          <div style={{ background:"var(--bg)", borderRadius:10, padding:14, marginBottom:16, border:"1px solid var(--border)" }}>
+            <div style={{ fontSize:12, fontWeight:700, color:"var(--muted)", marginBottom:8 }}>PREVIEW</div>
+            <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+              <div style={{ width:56, height:56, borderRadius:10, overflow:"hidden", background:"linear-gradient(135deg, var(--lime), var(--sage))", display:"flex", alignItems:"center", justifyContent:"center", fontSize:26, flexShrink:0 }}>
+                {form.imagePreview ? <img src={form.imagePreview} style={{ width:"100%", height:"100%", objectFit:"cover" }} /> : CATEGORY_ICONS[form.category]}
+              </div>
+              <div>
+                <div style={{ fontFamily:"Syne", fontWeight:700 }}>{form.name||"Product Name"}</div>
+                <div style={{ fontSize:12, color:"var(--muted)" }}>{form.category} · {form.origin||"Origin"}</div>
+                <div style={{ fontWeight:800, color:"var(--pine)" }}>₹{form.price||0}/{form.unit} {form.certified&&<span style={{ fontSize:11, background:"#dcfce7", color:"#15803d", padding:"1px 6px", borderRadius:4 }}>🌿</span>}</div>
+              </div>
+            </div>
+          </div>
+          <button className="btn btn-primary w-full btn-lg" onClick={handleSubmit} disabled={submitting}>{submitting?"Adding...":"Add to Marketplace"}</button>
+        </div>
+      </div>
+    </FarmerLayout>
+  );
+}
+
+function FarmerMyProducts() {
+  const { allProducts, refreshProducts } = useProducts();
+  const myProducts = allProducts.filter(p => p.addedByFarmer);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+const deleteProduct = (id) => {
+  const saved = storage.get("products", []);
+  storage.set("products", saved.filter(p => p.id !== id));
+  refreshProducts();
+  setDeleteConfirm(null);
+};
+
+  return (
+    <FarmerLayout title="My Products">
+      <div className="page-header flex items-center justify-between">
+        <div>
+          <div className="page-title">My Products</div>
+          <div className="page-sub">{myProducts.length} products listed on marketplace</div>
+        </div>
+        <Link to="/farmer/add-product">
+          <button className="btn btn-primary">+ Add Product</button>
+        </Link>
+      </div>
+      {myProducts.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-title">No Products Yet</div>
+          <div className="empty-desc">Add your first product to appear on the marketplace</div>
+          <Link to="/farmer/add-product">
+            <button className="btn btn-primary" style={{ marginTop: 16 }}>Add Product</button>
+          </Link>
+        </div>
+      ) : (
+        <div className="card">
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Category</th>
+                  <th>Price</th>
+                  <th>Quantity</th>
+                  <th>Origin</th>
+                  <th>Certified</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {myProducts.map(p => (
+                  <tr key={p.id}>
+                    <td>
+                      <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                        {p.image
+                          ? <img src={p.image} style={{ width:36, height:36, borderRadius:8, objectFit:"cover" }} />
+                          : <div style={{ width:36, height:36, borderRadius:8, background:"#e8f5e9", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>
+                              {CATEGORY_ICONS[p.category]}
+                            </div>
+                        }
+                        <strong>{p.name}</strong>
+                      </div>
+                    </td>
+                    <td>{p.category}</td>
+                    <td>₹{p.price}/{p.unit}</td>
+                    <td>{p.stock} {p.unit}</td>
+                    <td>{p.origin}</td>
+                    <td>
+                      {p.certified
+                        ? <span className="pill pill-green">Certified</span>
+                        : <span className="pill pill-gray">No</span>}
+                    </td>
+                    <td>
+  {deleteConfirm === p.id ? (
+    <div className="flex gap-2">
+      <button className="btn btn-danger btn-sm"
+        onClick={() => deleteProduct(p.id)}>
+        Confirm
+      </button>
+      <button className="btn btn-secondary btn-sm"
+        onClick={() => setDeleteConfirm(null)}>
+        Cancel
+      </button>
+    </div>
+  ) : (
+    <button className="btn btn-danger btn-sm"
+      onClick={() => setDeleteConfirm(p.id)}>
+      Delete
+    </button>
+  )}
+</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </FarmerLayout>
+  );
+}
+
 function FarmerBatches() {
+  const { allProducts } = useProducts();
+  const [batches, setBatches] = useState([]);
+  const { path } = useRouter();
+
+  const load = useCallback(() => {
+  const data = storage.get("demo_batches", []);
+  setBatches([...data]); // spread forces new array reference → triggers re-render
+}, []);
+  useEffect(()=>{ load(); },[path]);
+
   return (
     <FarmerLayout title="My Batches">
       <div className="page-header flex items-center justify-between">
-        <div><div className="page-title">My Batches</div><div className="page-sub">Track all your product batches</div></div>
-        <Link to="/farmer/create-batch"><button className="btn btn-primary">+ New Batch</button></Link>
+        <div><div className="page-title">My Batches</div><div className="page-sub">{batches.length} batches total</div></div>
+        <div className="flex gap-2">
+          
+          <Link to="/farmer/create-batch"><button className="btn btn-primary">+ New Batch</button></Link>
+        </div>
       </div>
       <div className="card">
         <div className="table-wrap">
-          <table>
-            <thead><tr><th>Batch ID</th><th>Product</th><th>Quantity</th><th>Date</th><th>Revenue</th><th>Status</th><th>Actions</th></tr></thead>
-            <tbody>
-              {BATCHES.map(b => (
-                <tr key={b.id}>
-                  <td><strong>{b.id}</strong></td>
-                  <td>{b.product}</td>
-                  <td>{b.qty}</td>
-                  <td>{b.date}</td>
-                  <td>₹{b.price.toLocaleString()}</td>
-                  <td><span className={`pill ${b.status === "delivered" ? "pill-green" : b.status === "in_transit" ? "pill-blue" : b.status === "processing" ? "pill-yellow" : "pill-gray"}`}>{b.status.replace("_", " ")}</span></td>
-                  <td><button className="btn btn-secondary btn-sm">View</button></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {batches.length===0 ? (
+            <div className="empty-state"><div className="empty-icon">📦</div><div className="empty-title">No Batches Yet</div>
+              <Link to="/farmer/create-batch"><button className="btn btn-primary" style={{ marginTop:16 }}>+ Create Batch</button></Link></div>
+          ) : (
+            <table>
+              <thead><tr><th>Batch Code</th><th>Product</th><th>Quantity</th><th>Location</th><th>Price</th><th>Status</th><th>Certified</th></tr></thead>
+              <tbody>
+                {batches.map(b=>(
+                  <tr key={b.batchCode}>
+                    <td><strong style={{ color:"var(--pine)" }}>{b.batchCode}</strong></td>
+                    <td>{b.productName}</td>
+                    <td>{b.quantity}</td>
+                    <td>{b.farmLocation||"—"}</td>
+                    <td><strong>₹{Number(b.price||0).toLocaleString("en-IN")}</strong></td>
+                    <td><span className={`pill ${statusClass(b.status)}`}>{(b.status||"pending").toLowerCase()}</span></td>
+                    <td>{b.certified?<span className="pill pill-green">🌿 Yes</span>:<span className="pill pill-gray">No</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </FarmerLayout>
@@ -904,31 +952,70 @@ function FarmerBatches() {
 }
 
 function FarmerCreateBatch() {
+  const { allProducts } = useProducts();
+  const { navigate } = useRouter();
+  const [form, setForm] = useState({ productId:"", quantity:"", price:"", harvestDate:"", expiryDate:"", farmLocation:"", certified:true });
+  const [submitting, setSubmitting] = useState(false);
+  const [msg, setMsg] = useState({ type:"", text:"" });
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  const handleSubmit = () => {
+    if (!form.productId||!form.quantity||!form.price) { setMsg({ type:"error", text:"Product, quantity and price are required." }); return; }
+    setSubmitting(true);
+    const selected = allProducts.find(p=>String(p.id)===String(form.productId));
+    const newBatch = {
+      id: Date.now(),
+      batchCode: "BCH-"+Math.random().toString(36).substr(2,6).toUpperCase(),
+      productName: selected?selected.name:"Product",
+      productId: form.productId,
+      quantity: form.quantity,
+      price: form.price,
+      farmLocation: form.farmLocation,
+      harvestDate: form.harvestDate,
+      expiryDate: form.expiryDate,
+      certified: form.certified,
+      status: "PENDING",
+      createdAt: new Date().toISOString(),
+    };
+    const existing = storage.get("demo_batches",[]);
+    existing.unshift(newBatch);
+    storage.set("demo_batches", existing);
+    setMsg({ type:"success", text:`✅ Batch ${newBatch.batchCode} created!` });
+    setTimeout(()=>navigate("/farmer/batches"),1000);
+    setSubmitting(false);
+  };
+
   return (
-    <FarmerLayout title="Create New Batch">
-      <div style={{ maxWidth: 640 }}>
-        <div className="page-header"><div className="page-title">Create New Batch</div><div className="page-sub">Log a new product batch to the supply chain</div></div>
+    <FarmerLayout title="Create Batch">
+      <div style={{ maxWidth:640 }}>
+        <div className="page-header"><div className="page-title">Create New Batch</div><div className="page-sub">Log a product batch to the supply chain</div></div>
+        {msg.text && <div style={{ padding:"10px 16px", borderRadius:8, marginBottom:16, background:msg.type==="success"?"#dcfce7":"#fee2e2", color:msg.type==="success"?"#15803d":"#991b1b", fontSize:14 }}>{msg.text}</div>}
         <div className="card card-pad">
-          <div className="grid-2">
-            <div className="form-group"><label className="form-label">Product Name</label><input className="form-input" placeholder="e.g. Organic Basmati Rice" /></div>
-            <div className="form-group"><label className="form-label">Category</label><select className="form-input form-select"><option>Grains</option><option>Fruits</option><option>Vegetables</option><option>Spices</option><option>Dairy</option></select></div>
-            <div className="form-group"><label className="form-label">Quantity (kg)</label><input className="form-input" type="number" placeholder="500" /></div>
-            <div className="form-group"><label className="form-label">Price per kg (₹)</label><input className="form-input" type="number" placeholder="85" /></div>
-            <div className="form-group"><label className="form-label">Harvest Date</label><input className="form-input" type="date" /></div>
-            <div className="form-group"><label className="form-label">Expiry Date</label><input className="form-input" type="date" /></div>
+          <div className="form-group">
+            <label className="form-label">Select Product *</label>
+            <select className="form-input form-select" value={form.productId} onChange={e=>set("productId",e.target.value)}>
+              <option value="">— Choose a product —</option>
+              {allProducts.map(p=><option key={p.id} value={p.id}>{CATEGORY_ICONS[p.category]||"🌾"} {p.name} ({p.category})</option>)}
+            </select>
+            {allProducts.length===0&&<div style={{ fontSize:12, color:"var(--muted)", marginTop:4 }}>No products yet. <Link to="/farmer/add-product" style={{ color:"var(--sage)" }}>Add a product first.</Link></div>}
           </div>
-          <div className="form-group"><label className="form-label">Farm Location</label><input className="form-input" placeholder="Village, District, State" /></div>
-          <div className="form-group"><label className="form-label">Description</label><textarea className="form-input" placeholder="Describe growing methods, soil type, any certifications..." /></div>
+          <div className="grid-2">
+            <div className="form-group"><label className="form-label">Quantity *</label><input className="form-input" placeholder="e.g. 500 kg" value={form.quantity} onChange={e=>set("quantity",e.target.value)} /></div>
+            <div className="form-group"><label className="form-label">Total Price (₹) *</label><input className="form-input" type="number" placeholder="42500" value={form.price} onChange={e=>set("price",e.target.value)} /></div>
+            <div className="form-group"><label className="form-label">Harvest Date</label><input className="form-input" type="date" value={form.harvestDate} onChange={e=>set("harvestDate",e.target.value)} /></div>
+            <div className="form-group"><label className="form-label">Expiry Date</label><input className="form-input" type="date" value={form.expiryDate} onChange={e=>set("expiryDate",e.target.value)} /></div>
+          </div>
+          <div className="form-group"><label className="form-label">Farm Location</label><input className="form-input" placeholder="Village, District, State" value={form.farmLocation} onChange={e=>set("farmLocation",e.target.value)} /></div>
           <div className="form-group">
             <label className="form-label">Organic Certified?</label>
-            <div className="flex gap-3 mt-2">
-              <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}><input type="radio" name="cert" defaultChecked /> Yes, FSSAI Certified</label>
-              <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}><input type="radio" name="cert" /> No</label>
+            <div className="flex gap-3" style={{ marginTop:8 }}>
+              <label style={{ display:"flex", alignItems:"center", gap:6, cursor:"pointer" }}><input type="radio" name="cert" checked={form.certified} onChange={()=>set("certified",true)} /> Yes, FSSAI Certified</label>
+              <label style={{ display:"flex", alignItems:"center", gap:6, cursor:"pointer" }}><input type="radio" name="cert" checked={!form.certified} onChange={()=>set("certified",false)} /> No</label>
             </div>
           </div>
           <div className="flex gap-3 mt-4">
-            <button className="btn btn-primary">Submit Batch</button>
-            <button className="btn btn-secondary">Save Draft</button>
+            <button className="btn btn-primary" onClick={handleSubmit} disabled={submitting}>{submitting?"Submitting...":"Submit Batch"}</button>
+            <button className="btn btn-secondary" onClick={()=>navigate("/farmer/batches")}>Cancel</button>
           </div>
         </div>
       </div>
@@ -937,22 +1024,24 @@ function FarmerCreateBatch() {
 }
 
 function FarmerAnalytics() {
+  const batches = storage.get("demo_batches",[]);
+  const totalRevenue = batches.reduce((s,b)=>s+Number(b.price||0),0);
   return (
-    <FarmerLayout title="Sales Analytics">
+    <FarmerLayout title="Analytics">
       <div className="page-header"><div className="page-title">Sales Analytics</div><div className="page-sub">Track performance across products and seasons</div></div>
       <div className="stats-grid">
-        {[["₹6.8L", "Total Revenue", "FY 2024"], ["48 MT", "Total Volume", "All products"], ["94%", "Delivery Rate", "On-time"], ["4.8⭐", "Avg Rating", "Consumer feedback"]].map(([v, l, s]) => (
-          <div className="stat-card" key={l}><div className="stat-value">{v}</div><div className="stat-label">{l}</div><div className="text-muted">{s}</div></div>
+        {[[`₹${totalRevenue.toLocaleString("en-IN")}||₹6.8L`,"Total Revenue","FY 2024"],["48 MT","Total Volume","All products"],["94%","Delivery Rate","On-time"],["4.8⭐","Avg Rating","Consumer feedback"]].map(([v,l,s])=>(
+          <div className="stat-card" key={l}><div className="stat-value">{v.split("||")[0]}</div><div className="stat-label">{l}</div><div className="text-muted">{s}</div></div>
         ))}
       </div>
       <div className="grid-2 mb-6">
-        <div className="card"><div className="card-header"><span style={{ fontWeight: 700 }}>Revenue Trend (Monthly)</span></div><div className="card-body"><BarChart data={[42000, 58000, 71000, 63000, 88000, 95000, 110000, 102000, 118000, 125000, 108000, 142000]} labels={["A","M","J","J","A","S","O","N","D","J","F","M"]} /></div></div>
-        <div className="card"><div className="card-header"><span style={{ fontWeight: 700 }}>Product Mix</span></div>
+        <div className="card"><div className="card-header"><span style={{ fontWeight:700 }}>Revenue Trend</span></div><div className="card-body"><BarChart data={[42000,58000,71000,63000,88000,95000,110000]} labels={["Sep","Oct","Nov","Dec","Jan","Feb","Mar"]} /></div></div>
+        <div className="card"><div className="card-header"><span style={{ fontWeight:700 }}>Product Mix</span></div>
           <div className="card-body">
-            {[["🌾 Basmati Rice", 42], ["🌿 Turmeric", 28], ["🌱 Ragi", 18], ["🥬 Spinach", 12]].map(([n, pct]) => (
-              <div key={n} style={{ marginBottom: 14 }}>
-                <div className="flex justify-between mb-4" style={{ marginBottom: 4 }}><span style={{ fontSize: 14 }}>{n}</span><span style={{ fontWeight: 700 }}>{pct}%</span></div>
-                <div className="inventory-bar"><div className="inventory-fill" style={{ width: `${pct}%` }} /></div>
+            {[["🌾 Grains",42],["🌿 Spices",28],["🌱 Others",18],["🥬 Veggies",12]].map(([n,pct])=>(
+              <div key={n} style={{ marginBottom:14 }}>
+                <div className="flex justify-between" style={{ marginBottom:4 }}><span style={{ fontSize:14 }}>{n}</span><span style={{ fontWeight:700 }}>{pct}%</span></div>
+                <div className="inventory-bar"><div className="inventory-fill" style={{ width:`${pct}%` }} /></div>
               </div>
             ))}
           </div>
@@ -963,49 +1052,83 @@ function FarmerAnalytics() {
 }
 
 function FarmerQR() {
+  const batches = storage.get("demo_batches",[]);
+  const [selectedBatch, setSelectedBatch] = useState("");
+  const [qrUrl, setQrUrl] = useState("");
+  const batch = batches.find(b=>b.batchCode===selectedBatch);
+
+  const generateQR = () => {
+    if (!selectedBatch) return;
+    const data = `FarmChainX|Batch:${selectedBatch}|Product:${batch?.productName||""}|Date:${batch?.harvestDate||""}|Certified:${batch?.certified?"Yes":"No"}`;
+    const encoded = encodeURIComponent(data);
+    setQrUrl(`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encoded}`);
+  };
+
   return (
-    <FarmerLayout title="QR Code Generator">
-      <div className="page-header"><div className="page-title">QR Code Generator</div><div className="page-sub">Generate QR codes for product traceability</div></div>
+    <FarmerLayout title="QR Codes">
+      <div className="page-header"><div className="page-title">QR Code Generator</div><div className="page-sub">Generate scannable QR codes for product traceability</div></div>
       <div className="grid-2">
         <div className="card card-pad">
           <div className="section-title">Generate QR Code</div>
-          <div className="form-group"><label className="form-label">Select Batch</label><select className="form-input form-select">{BATCHES.map(b => <option key={b.id}>{b.id} – {b.product}</option>)}</select></div>
-          <div className="form-group"><label className="form-label">QR Content</label><select className="form-input form-select"><option>Full Trace URL</option><option>Batch Summary</option><option>Farm Certificate</option></select></div>
-          <button className="btn btn-primary w-full">Generate QR Code</button>
+          <div className="form-group">
+            <label className="form-label">Select Batch</label>
+            <select className="form-input form-select" value={selectedBatch} onChange={e=>{ setSelectedBatch(e.target.value); setQrUrl(""); }}>
+              <option value="">— Select a batch —</option>
+              {batches.map(b=><option key={b.batchCode} value={b.batchCode}>{b.batchCode} – {b.productName}</option>)}
+            </select>
+          </div>
+          {batch && (
+            <div style={{ background:"var(--bg)", borderRadius:8, padding:12, marginBottom:16, fontSize:13 }}>
+              <div><strong>Product:</strong> {batch.productName}</div>
+              <div><strong>Quantity:</strong> {batch.quantity}</div>
+              <div><strong>Location:</strong> {batch.farmLocation||"—"}</div>
+              <div><strong>Certified:</strong> {batch.certified?"Yes":"No"}</div>
+            </div>
+          )}
+          <button className="btn btn-primary w-full" onClick={generateQR} disabled={!selectedBatch}>Generate QR Code</button>
         </div>
-        <div className="card card-pad" style={{ textAlign: "center" }}>
-          <div className="section-title">Preview</div>
-          <div style={{ display: "flex", justifyContent: "center", margin: "24px 0" }}>
-            <div className="qr-box">▦</div>
-          </div>
-          <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16 }}>BCH-001 · Organic Basmati Rice</div>
-          <div className="flex gap-2" style={{ justifyContent: "center" }}>
-            <button className="btn btn-primary btn-sm">📥 Download PNG</button>
-            <button className="btn btn-secondary btn-sm">🖨️ Print</button>
-          </div>
+        <div className="card card-pad" style={{ textAlign:"center" }}>
+          <div className="section-title">Scannable QR Code</div>
+          {qrUrl ? (
+            <>
+              <img src={qrUrl} alt="QR Code" style={{ width:200, height:200, margin:"16px auto", display:"block", borderRadius:8, border:"2px solid var(--border)" }} />
+              <div style={{ fontSize:13, color:"var(--muted)", marginBottom:12 }}>{selectedBatch} · {batch?.productName}</div>
+              <div style={{ fontSize:12, color:"var(--muted)", marginBottom:16 }}>📱 Scan with any QR reader to verify</div>
+              <div className="flex gap-2" style={{ justifyContent:"center" }}>
+                <a href={qrUrl} download={`${selectedBatch}-qr.png`}><button className="btn btn-primary btn-sm">Download</button></a>
+                <button className="btn btn-secondary btn-sm" onClick={()=>window.print()}>🖨️ Print</button>
+              </div>
+            </>
+          ) : (
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:200, color:"var(--muted)", flexDirection:"column", gap:8 }}>
+              <div style={{ fontSize:48 }}>▦</div>
+              <div style={{ fontSize:13 }}>Select a batch and click Generate</div>
+            </div>
+          )}
         </div>
       </div>
     </FarmerLayout>
   );
 }
 
-// ─── DISTRIBUTOR ──────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+// DISTRIBUTOR
+// ══════════════════════════════════════════════════════════════════════════════
 const DIST_NAV = [
-  { label: "Main", items: [
-    { icon: "🏠", label: "Dashboard", href: "/distributor/dashboard" },
-    { icon: "🚚", label: "Shipments", href: "/distributor/shipments" },
-    { icon: "📍", label: "Tracking", href: "/distributor/tracking" },
+  { label:"Main", items:[
+    { icon:"⊞", label:"Dashboard", href:"/distributor/dashboard" },
+    { icon:"»", label:"Shipments", href:"/distributor/shipments" },
+    { icon:"+", label:"New Shipment", href:"/distributor/new-shipment" },
   ]},
-  { label: "Account", items: [
-    { icon: "❓", label: "Help", href: "/help" },
-  ]},
+  { label:"Account", items:[{ icon:"?", label:"Help", href:"/help" }] },
 ];
 
 function DistLayout({ title, children }) {
   const { user } = useAuth();
   return (
     <div className="app-shell">
-      <Sidebar role="Distributor" nav={DIST_NAV} user={user || { name: "Priya Sharma" }} />
+      <Sidebar role="Distributor" nav={DIST_NAV} user={user||{ name:"Distributor" }} />
       <div className="main-content with-sidebar">
         <Topbar title={title} />
         <div className="page-body">{children}</div>
@@ -1016,96 +1139,396 @@ function DistLayout({ title, children }) {
 }
 
 function DistributorDashboard() {
+  const { user } = useAuth();
+  const [shipments, setShipments] = useState([]);
+
+  useEffect(() => {
+    setShipments(storage.get("shipments", SEED_SHIPMENTS));
+  }, []);
+
+  const active    = shipments.filter(s => s.status === "IN_TRANSIT").length;
+  const delivered = shipments.filter(s => s.status === "DELIVERED").length;
+  const pending   = shipments.filter(s => s.status === "PENDING").length;
+
+  // weekly volume — count shipments created per day (mock last 7 days)
+  const weekDays = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+  const weekData = [2,3,2,4,3,5,shipments.length];
+
   return (
     <DistLayout title="Distributor Dashboard">
-      <div className="page-header"><div className="page-title">Distributor Dashboard</div><div className="page-sub">Manage shipments across the supply chain</div></div>
+      <div className="page-header">
+        <div className="page-title">Welcome, {user?.name||"Distributor"} </div>
+        <div className="page-sub">Manage your shipments and logistics operations</div>
+      </div>
+
+      {/* Stats */}
       <div className="stats-grid">
-        {[["🚚", "Active Shipments", "8", "#e3f2fd"], ["📦", "Batches Received", "23", "#e8f5e9"], ["✅", "Delivered Today", "5", "#f3e5f5"], ["⏱️", "Avg Transit Days", "3.2", "#fff3e0"]].map(([i, l, v, bg]) => (
-          <div className="stat-card" key={l}><div className="stat-icon" style={{ background: bg }}>{i}</div><div className="stat-value">{v}</div><div className="stat-label">{l}</div></div>
+        {[
+          ["","Active (In Transit)", active,   "#e3f2fd"],
+          ["","Pending",             pending,  "#fff3e0"],
+          ["","Delivered",           delivered,"#e8f5e9"],
+          ["","Total Shipments",     shipments.length,"#f3e5f5"],
+        ].map(([i,l,v,bg])=>(
+          <div className="stat-card" key={l}>
+            <div className="stat-icon" style={{ background:bg }}>{i}</div>
+            <div className="stat-value">{v}</div>
+            <div className="stat-label">{l}</div>
+          </div>
         ))}
       </div>
+
       <div className="grid-2">
-        <div className="card"><div className="card-header"><span style={{ fontWeight: 700 }}>🚚 Active Shipments</span><Link to="/distributor/shipments"><span style={{ fontSize: 13, color: "var(--sage)" }}>All →</span></Link></div>
-          <div className="card-body" style={{ padding: 0 }}>
-            {SHIPMENTS.map(s => (
-              <div key={s.id} style={{ padding: "12px 20px", borderBottom: "1px solid var(--border)" }}>
+        {/* Recent Shipments */}
+        <div className="card">
+          <div className="card-header">
+            <span style={{ fontWeight:700 }}> Recent Shipments</span>
+            <Link to="/distributor/shipments"><span style={{ fontSize:13, color:"var(--sage)" }}>View all →</span></Link>
+          </div>
+          <div className="card-body" style={{ padding:0 }}>
+            {shipments.length === 0 ? (
+              <div style={{ padding:20, textAlign:"center", color:"var(--muted)" }}>No shipments yet.</div>
+            ) : shipments.slice(0,5).map(s=>(
+              <div key={s.id} style={{ padding:"12px 20px", borderBottom:"1px solid var(--border)" }}>
                 <div className="flex justify-between items-center">
                   <div>
-                    <div style={{ fontWeight: 600, fontSize: 14 }}>{s.id}</div>
-                    <div style={{ fontSize: 12, color: "var(--muted)" }}>{s.from} → {s.to} · {s.weight}</div>
+                    <div style={{ fontWeight:600, fontSize:14 }}>{s.shipmentCode}</div>
+                    <div style={{ fontSize:12, color:"var(--muted)" }}>{s.fromLocation} → {s.toLocation}</div>
+                    <div style={{ fontSize:11, color:"var(--muted)", marginTop:2 }}>
+                      Batch: {s.batchCode} · {s.weight} · Updated: {s.updatedAt||s.eta}
+                    </div>
                   </div>
-                  <span className={`pill ${s.status === "delivered" ? "pill-green" : s.status === "in_transit" ? "pill-blue" : "pill-gray"}`}>{s.status.replace("_", " ")}</span>
+                  <span className={`pill ${statusClass(s.status)}`}>
+                    {s.status.replace(/_/g," ")}
+                  </span>
                 </div>
               </div>
             ))}
           </div>
         </div>
-        <div className="card"><div className="card-header"><span style={{ fontWeight: 700 }}>📊 Shipment Volume</span></div><div className="card-body"><BarChart data={[12, 18, 14, 22, 19, 28, 24]} labels={["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]} /></div></div>
+
+        {/* Weekly Volume Chart */}
+        <div className="card">
+          <div className="card-header"><span style={{ fontWeight:700 }}> Weekly Volume</span></div>
+          <div className="card-body">
+            <BarChart data={weekData} labels={weekDays} />
+            <div style={{ marginTop:16, display:"flex", flexDirection:"column", gap:8 }}>
+              <div className="flex justify-between" style={{ fontSize:13 }}>
+                <span style={{ color:"var(--muted)" }}>On-time delivery rate</span>
+                <strong style={{ color:"#16a34a" }}>94%</strong>
+              </div>
+              <div className="inventory-bar">
+                <div className="inventory-fill" style={{ width:"94%" }} />
+              </div>
+              <div className="flex justify-between" style={{ fontSize:13 }}>
+                <span style={{ color:"var(--muted)" }}>Average transit days</span>
+                <strong>3.2 days</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Status breakdown */}
+      <div className="card" style={{ marginTop:20 }}>
+        <div className="card-header"><span style={{ fontWeight:700 }}> Shipment Status Breakdown</span></div>
+        <div className="card-body">
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:16 }}>
+            {[
+              ["PENDING",    pending,   "#fff3e0","#854d0e"],
+              ["IN TRANSIT", active,    "#dbeafe","#1d4ed8"],
+              ["DELIVERED",  delivered, "#dcfce7","#15803d"],
+            ].map(([label, count, bg, color])=>(
+              <div key={label} style={{ background:bg, borderRadius:10, padding:16, textAlign:"center" }}>
+                <div style={{ fontSize:24, fontWeight:800, color, fontFamily:"Syne" }}>{count}</div>
+                <div style={{ fontSize:12, fontWeight:600, color, marginTop:4 }}>{label}</div>
+                <div style={{ fontSize:11, color, opacity:0.7, marginTop:2 }}>
+                  {shipments.length > 0 ? Math.round((count/shipments.length)*100) : 0}% of total
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </DistLayout>
   );
 }
 
 function DistributorShipments() {
+  const [shipments, setShipments]   = useState([]);
+  const [filter, setFilter]         = useState("ALL");
+  const [search, setSearch]         = useState("");
+  const [selected, setSelected]     = useState(null);
+
+  useEffect(() => {
+    setShipments(storage.get("shipments", SEED_SHIPMENTS));
+  }, []);
+
+  const updateStatus = (id, newStatus) => {
+    const updated = shipments.map(s =>
+      s.id === id ? { ...s, status:newStatus, updatedAt:new Date().toLocaleString("en-IN") } : s
+    );
+    setShipments(updated);
+    storage.set("shipments", updated);
+    // update selected too
+    if (selected?.id === id) setSelected(updated.find(s=>s.id===id));
+  };
+
+  const filtered = shipments.filter(s => {
+    const matchFilter = filter === "ALL" || s.status === filter;
+    const matchSearch = !search ||
+      s.shipmentCode.toLowerCase().includes(search.toLowerCase()) ||
+      s.batchCode.toLowerCase().includes(search.toLowerCase()) ||
+      s.fromLocation.toLowerCase().includes(search.toLowerCase()) ||
+      s.toLocation.toLowerCase().includes(search.toLowerCase());
+    return matchFilter && matchSearch;
+  });
+
   return (
     <DistLayout title="Shipment Management">
       <div className="page-header flex items-center justify-between">
-        <div><div className="page-title">Shipments</div><div className="page-sub">Manage all logistics operations</div></div>
-        <button className="btn btn-primary">+ New Shipment</button>
-      </div>
-      <div className="card">
-        <div className="table-wrap">
-          <table>
-            <thead><tr><th>Shipment ID</th><th>Batch</th><th>Route</th><th>Weight</th><th>ETA</th><th>Status</th><th>Actions</th></tr></thead>
-            <tbody>
-              {SHIPMENTS.map(s => (
-                <tr key={s.id}>
-                  <td><strong>{s.id}</strong></td>
-                  <td>{s.batch}</td>
-                  <td>{s.from} → {s.to}</td>
-                  <td>{s.weight}</td>
-                  <td>{s.eta}</td>
-                  <td><span className={`pill ${s.status === "delivered" ? "pill-green" : s.status === "in_transit" ? "pill-blue" : "pill-gray"}`}>{s.status.replace("_", " ")}</span></td>
-                  <td className="flex gap-2"><button className="btn btn-secondary btn-sm">Track</button><button className="btn btn-secondary btn-sm">Edit</button></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div>
+          <div className="page-title">Shipments</div>
+          <div className="page-sub">{filtered.length} of {shipments.length} shipments</div>
         </div>
+        <Link to="/distributor/new-shipment">
+          <button className="btn btn-primary">+ New Shipment</button>
+        </Link>
+      </div>
+
+      {/* Filters & Search */}
+      <div className="flex gap-2 mb-6" style={{ flexWrap:"wrap", alignItems:"center" }}>
+        {["ALL","PENDING","IN_TRANSIT","DELIVERED"].map(f=>(
+          <button key={f}
+            className={`btn btn-sm ${filter===f?"btn-primary":"btn-secondary"}`}
+            onClick={()=>setFilter(f)}>
+            {f.replace(/_/g," ")}
+          </button>
+        ))}
+        <input className="form-input" style={{ width:220, marginLeft:"auto" }}
+          placeholder="🔍 Search by ID, batch, route..."
+          value={search} onChange={e=>setSearch(e.target.value)} />
+      </div>
+
+      <div className={selected ? "grid-2" : ""} style={{ gap:20, alignItems:"start" }}>
+        {/* Shipments Table */}
+        <div className="card">
+          <div className="table-wrap">
+            {filtered.length === 0 ? (
+              <div style={{ padding:40, textAlign:"center", color:"var(--muted)" }}>
+                No shipments found.
+              </div>
+            ) : (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Shipment ID</th>
+                    <th>Batch</th>
+                    <th>Route</th>
+                    <th>Weight</th>
+                    <th>Updated</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map(s=>(
+                    <tr key={s.id}
+                      style={{ cursor:"pointer", background: selected?.id===s.id ? "var(--bg)":undefined }}
+                      onClick={()=>setSelected(selected?.id===s.id ? null : s)}>
+                      <td><strong style={{ color:"var(--pine)" }}>{s.shipmentCode}</strong></td>
+                      <td><span className="tag">{s.batchCode}</span></td>
+                      <td>{s.fromLocation} → {s.toLocation}</td>
+                      <td>{s.weight}</td>
+                      <td>
+                        <div style={{ fontSize:13 }}>{s.updatedAt||"—"}</div>
+                        <div style={{ fontSize:11, color:"var(--muted)" }}>ETA: {s.eta}</div>
+                      </td>
+                      <td>
+                        <span className={`pill ${statusClass(s.status)}`}>
+                          {s.status.replace(/_/g," ")}
+                        </span>
+                      </td>
+                      <td onClick={e=>e.stopPropagation()}>
+                        {s.status==="PENDING" &&
+                          <button className="btn btn-primary btn-sm"
+                            onClick={()=>updateStatus(s.id,"IN_TRANSIT")}>
+                            🚚 Start Transit
+                          </button>}
+                        {s.status==="IN_TRANSIT" &&
+                          <button className="btn btn-primary btn-sm"
+                            onClick={()=>updateStatus(s.id,"DELIVERED")}>
+                            ✅ Mark Delivered
+                          </button>}
+                        {s.status==="DELIVERED" &&
+                          <span className="pill pill-green">Done</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+
+        {/* Shipment Detail Panel */}
+        {selected && (
+          <div className="card card-pad" style={{ position:"sticky", top:80 }}>
+            <div className="flex justify-between items-center" style={{ marginBottom:16 }}>
+              <div style={{ fontFamily:"Syne", fontWeight:700, fontSize:16 }}>
+                {selected.shipmentCode}
+              </div>
+              <button onClick={()=>setSelected(null)}
+                style={{ background:"none", border:"none", cursor:"pointer", fontSize:18, color:"var(--muted)" }}>✕</button>
+            </div>
+
+            {/* Details */}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:16, fontSize:13 }}>
+              {[
+                ["Batch",    selected.batchCode],
+                ["Weight",   selected.weight],
+                ["From",     selected.fromLocation],
+                ["To",       selected.toLocation],
+                ["ETA",      selected.eta],
+                ["Updated",  selected.updatedAt||"—"],
+              ].map(([k,v])=>(
+                <div key={k}>
+                  <div style={{ color:"var(--muted)", fontSize:11 }}>{k}</div>
+                  <div style={{ fontWeight:600 }}>{v}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Timeline */}
+            <div style={{ fontWeight:700, fontSize:14, marginBottom:12 }}>📍 Journey Timeline</div>
+            <div className="timeline">
+              {[
+                { label:"Shipment Created",   done: true },
+                { label:"Picked up from "+selected.fromLocation,
+                  done: ["IN_TRANSIT","DELIVERED"].includes(selected.status),
+                  meta: ["IN_TRANSIT","DELIVERED"].includes(selected.status) ? selected.updatedAt : "Pending" },
+                { label:"In Transit to "+selected.toLocation,
+                  done: ["IN_TRANSIT","DELIVERED"].includes(selected.status),
+                  pending: selected.status==="PENDING" },
+                { label:"Delivered at "+selected.toLocation,
+                  done: selected.status==="DELIVERED",
+                  pending: selected.status!=="DELIVERED",
+                  meta: selected.status==="DELIVERED" ? selected.updatedAt : "ETA: "+selected.eta },
+              ].map((t,i)=>(
+                <div className="timeline-item" key={i}>
+                  <div className={`timeline-dot ${t.done?"done":t.pending?"pending":""}`} />
+                  <div className="timeline-title">{t.label}</div>
+                  {t.meta && <div className="timeline-meta">{t.meta}</div>}
+                </div>
+              ))}
+            </div>
+
+            {/* Action in panel too */}
+            <div style={{ marginTop:16 }}>
+              {selected.status==="PENDING" &&
+                <button className="btn btn-primary w-full"
+                  onClick={()=>updateStatus(selected.id,"IN_TRANSIT")}>
+                  🚚 Start Transit
+                </button>}
+              {selected.status==="IN_TRANSIT" &&
+                <button className="btn btn-primary w-full"
+                  onClick={()=>updateStatus(selected.id,"DELIVERED")}>
+                  ✅ Mark Delivered
+                </button>}
+              {selected.status==="DELIVERED" &&
+                <div style={{ textAlign:"center", padding:12, background:"#dcfce7", borderRadius:8, color:"#15803d", fontWeight:600 }}>
+                  ✅ Delivery Complete
+                </div>}
+            </div>
+          </div>
+        )}
       </div>
     </DistLayout>
   );
 }
 
-function DistributorTracking() {
+function DistributorNewShipment() {
+  const { navigate } = useRouter();
+  const batches = storage.get("demo_batches", []);
+  const [form, setForm] = useState({
+    batchCode:"", fromLocation:"", toLocation:"", weight:"", eta:""
+  });
+  const [msg, setMsg] = useState({ type:"", text:"" });
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  const handleSubmit = () => {
+    if (!form.batchCode || !form.fromLocation || !form.toLocation || !form.weight || !form.eta) {
+      setMsg({ type:"error", text:"Please fill in all fields." });
+      return;
+    }
+    const newShipment = {
+      id: "SHP-"+Math.random().toString(36).substr(2,6).toUpperCase(),
+      shipmentCode: "SHP-"+Math.random().toString(36).substr(2,6).toUpperCase(),
+      batchCode: form.batchCode,
+      fromLocation: form.fromLocation,
+      toLocation: form.toLocation,
+      weight: form.weight,
+      eta: form.eta,
+      status: "PENDING",
+      updatedAt: new Date().toLocaleString("en-IN"),
+    };
+    const existing = storage.get("shipments", SEED_SHIPMENTS);
+    existing.unshift(newShipment);
+    storage.set("shipments", existing);
+    setMsg({ type:"success", text:`✅ Shipment ${newShipment.shipmentCode} created!` });
+    setTimeout(()=>navigate("/distributor/shipments"), 1000);
+  };
+
   return (
-    <DistLayout title="Shipment Tracking">
-      <div className="page-header"><div className="page-title">Live Tracking</div><div className="page-sub">Real-time shipment positions</div></div>
-      <div className="grid-2">
-        <div>
-          {SHIPMENTS.map(s => (
-            <div className="card card-pad mb-4" key={s.id}>
-              <div className="flex justify-between items-center mb-4">
-                <div><div style={{ fontWeight: 700 }}>{s.id}</div><div style={{ fontSize: 13, color: "var(--muted)" }}>Batch {s.batch}</div></div>
-                <span className={`pill ${s.status === "delivered" ? "pill-green" : s.status === "in_transit" ? "pill-blue" : "pill-gray"}`}>{s.status.replace("_", " ")}</span>
-              </div>
-              <div className="timeline" style={{ marginLeft: 8 }}>
-                <div className="timeline-item"><div className="timeline-dot done" /><div className="timeline-title">Picked up from {s.from}</div><div className="timeline-meta">Mar 5, 6:00 AM</div></div>
-                <div className="timeline-item"><div className={`timeline-dot ${s.status !== "pending" ? "done" : "pending"}`} /><div className="timeline-title">In Transit</div><div className="timeline-meta">ETA: {s.eta}</div></div>
-                <div className="timeline-item"><div className={`timeline-dot ${s.status === "delivered" ? "done" : "pending"}`} /><div className="timeline-title">Delivered at {s.to}</div><div className="timeline-meta">{s.status === "delivered" ? "Completed" : "Pending"}</div></div>
-              </div>
-            </div>
-          ))}
+    <DistLayout title="New Shipment">
+      <div style={{ maxWidth:600 }}>
+        <div className="page-header">
+          <div className="page-title">Create New Shipment</div>
+          <div className="page-sub">Log a new shipment to the supply chain</div>
         </div>
-        <div className="card" style={{ height: "fit-content" }}>
-          <div className="card-header"><span style={{ fontWeight: 700 }}>🗺️ Route Map</span></div>
-          <div style={{ background: "linear-gradient(135deg, #e8f5e9, #c8e6c9)", height: 320, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12 }}>
-            <div style={{ fontSize: 48 }}>🗺️</div>
-            <div style={{ fontWeight: 600, color: "var(--forest)" }}>Interactive Map</div>
-            <div style={{ fontSize: 13, color: "var(--muted)" }}>Live GPS tracking active</div>
-            <div style={{ display: "flex", gap: 8 }}>
-              {["🚚 SHP-101", "🚚 SHP-102"].map(l => <span key={l} className="pill pill-green">{l}</span>)}
+        {msg.text && (
+          <div style={{ padding:"10px 16px", borderRadius:8, marginBottom:16,
+            background:msg.type==="success"?"#dcfce7":"#fee2e2",
+            color:msg.type==="success"?"#15803d":"#991b1b", fontSize:14 }}>
+            {msg.text}
+          </div>
+        )}
+        <div className="card card-pad">
+          <div className="form-group">
+            <label className="form-label">Select Batch *</label>
+            <select className="form-input form-select" value={form.batchCode} onChange={e=>set("batchCode",e.target.value)}>
+              <option value="">— Choose a batch —</option>
+              {batches.map(b=>(
+                <option key={b.batchCode} value={b.batchCode}>
+                  {b.batchCode} — {b.productName} ({b.quantity})
+                </option>
+              ))}
+              {/* Also show seed batches */}
+              {["BCH-001 — Organic Basmati Rice","BCH-002 — Turmeric Powder","BCH-003 — Fresh Spinach","BCH-004 — Finger Millet"].map(b=>(
+                <option key={b} value={b.split(" ")[0]}>{b}</option>
+              ))}
+            </select>
+          </div>
+          <div className="grid-2">
+            <div className="form-group">
+              <label className="form-label">From Location *</label>
+              <input className="form-input" placeholder="e.g. Punjab Farm" value={form.fromLocation} onChange={e=>set("fromLocation",e.target.value)} />
             </div>
+            <div className="form-group">
+              <label className="form-label">To Location *</label>
+              <input className="form-input" placeholder="e.g. Delhi Hub" value={form.toLocation} onChange={e=>set("toLocation",e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Weight *</label>
+              <input className="form-input" placeholder="e.g. 500 kg" value={form.weight} onChange={e=>set("weight",e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">ETA Date *</label>
+              <input className="form-input" type="date" value={form.eta} onChange={e=>set("eta",e.target.value)} />
+            </div>
+          </div>
+          <div className="flex gap-3 mt-4">
+            <button className="btn btn-primary" onClick={handleSubmit}>Create Shipment</button>
+            <button className="btn btn-secondary" onClick={()=>navigate("/distributor/shipments")}>Cancel</button>
           </div>
         </div>
       </div>
@@ -1113,83 +1536,150 @@ function DistributorTracking() {
   );
 }
 
-// ─── RETAILER ─────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// RETAILER
+// ══════════════════════════════════════════════════════════════════════════════
 const RETAIL_NAV = [
-  { label: "Main", items: [
-    { icon: "🏠", label: "Dashboard", href: "/retailer/dashboard" },
-    { icon: "📋", label: "Inventory", href: "/retailer/inventory" },
-    { icon: "🏷️", label: "Product Listings", href: "/retailer/listings" },
-    { icon: "📬", label: "Orders", href: "/retailer/orders" },
+  { label:"Main", items:[
+    { icon:"⊞", label:"Dashboard", href:"/retailer/dashboard" },
+    { icon:"≡", label:"Inventory", href:"/retailer/inventory" },
+    { icon:"#", label:"Product Listings", href:"/retailer/listings" },
+    { icon:"✉", label:"Orders", href:"/retailer/orders" },
   ]},
-  { label: "Account", items: [{ icon: "❓", label: "Help", href: "/help" }] },
+  { label:"Account", items:[{ icon:"?", label:"Help", href:"/help" }] },
 ];
 
 function RetailLayout({ title, children }) {
   const { user } = useAuth();
   return (
     <div className="app-shell">
-      <Sidebar role="Retailer" nav={RETAIL_NAV} user={user || { name: "Amit Patel" }} />
-      <div className="main-content with-sidebar">
-        <Topbar title={title} />
-        <div className="page-body">{children}</div>
-      </div>
+      <Sidebar role="Retailer" nav={RETAIL_NAV} user={user||{ name:"Retailer" }} />
+      <div className="main-content with-sidebar"><Topbar title={title} /><div className="page-body">{children}</div></div>
       <ChatBot />
     </div>
   );
 }
 
 function RetailerDashboard() {
+  const { allProducts } = useProducts();
+  const orders = storage.get("demo_orders",[]);
+  const lowStock = allProducts.filter(p=>p.stock<150);
+  const [reorderModal, setReorderModal] = useState(null);
+  const [reorderQty, setReorderQty] = useState("");
+  const [reorderMsg, setReorderMsg] = useState("");
+
+  const submitReorder = () => {
+    if (!reorderQty) return;
+    setReorderMsg(`✅ Reorder of ${reorderQty} units for "${reorderModal.name}" submitted!`);
+    setTimeout(()=>{ setReorderModal(null); setReorderQty(""); setReorderMsg(""); },2000);
+  };
+
   return (
     <RetailLayout title="Retailer Dashboard">
-      <div className="page-header"><div className="page-title">Retailer Dashboard</div><div className="page-sub">Manage your store's supply chain presence</div></div>
+      <div className="page-header"><div className="page-title">Retailer Dashboard</div><div className="page-sub">Manage your store's supply chain</div></div>
       <div className="stats-grid">
-        {[["🛍️", "Orders Today", "47", "#e8f5e9"], ["💰", "Revenue (Mar)", "₹3.8L", "#fff3e0"], ["📦", "Low Stock Items", "6", "#fee2e2"], ["⭐", "Store Rating", "4.6", "#fce4ec"]].map(([i, l, v, bg]) => (
-          <div className="stat-card" key={l}><div className="stat-icon" style={{ background: bg }}>{i}</div><div className="stat-value">{v}</div><div className="stat-label">{l}</div></div>
+        {[["","Orders Total",orders.length,"#e8f5e9"],["","Revenue","₹3.8L","#fff3e0"],["","Low Stock",lowStock.length,"#fee2e2"],["","Store Rating","4.6","#fce4ec"]].map(([i,l,v,bg])=>(
+          <div className="stat-card" key={l}><div className="stat-icon" style={{ background:bg }}>{i}</div><div className="stat-value">{v}</div><div className="stat-label">{l}</div></div>
         ))}
       </div>
       <div className="grid-2">
-        <div className="card"><div className="card-header"><span style={{ fontWeight: 700 }}>📊 Sales This Week</span></div><div className="card-body"><BarChart data={[38000, 45000, 41000, 62000, 58000, 71000, 55000]} labels={["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]} /></div></div>
-        <div className="card"><div className="card-header"><span style={{ fontWeight: 700 }}>⚠️ Low Stock Alerts</span></div>
-          <div className="card-body" style={{ padding: 0 }}>
-            {PRODUCTS.filter(p => p.stock < 150).map(p => (
-              <div key={p.id} style={{ padding: "10px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12 }}>
-                <span style={{ fontSize: 22 }}>{p.icon}</span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>{p.name}</div>
-                  <div style={{ fontSize: 12, color: p.stock < 100 ? "#dc2626" : "var(--muted)" }}>Stock: {p.stock} {p.unit}</div>
-                  <div className="inventory-bar"><div className="inventory-fill" style={{ width: `${(p.stock / 200) * 100}%`, background: p.stock < 100 ? "#ef4444" : undefined }} /></div>
+        <div className="card"><div className="card-header"><span style={{ fontWeight:700 }}> Sales This Week</span></div><div className="card-body"><BarChart data={[38000,45000,41000,62000,58000,71000,55000]} labels={["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]} /></div></div>
+        <div className="card">
+          <div className="card-header"><span style={{ fontWeight:700 }}> Low Stock Alerts</span></div>
+          <div className="card-body" style={{ padding:0 }}>
+            {lowStock.length===0 ? <div style={{ padding:20, textAlign:"center", color:"var(--muted)" }}>All stock levels are good ✅</div> :
+              lowStock.slice(0,5).map(p=>(
+                <div key={p.id} style={{ padding:"10px 20px", borderBottom:"1px solid var(--border)", display:"flex", alignItems:"center", gap:12 }}>
+                  <span style={{ fontSize:22 }}>{CATEGORY_ICONS[p.category]||"🌾"}</span>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontWeight:600, fontSize:14 }}>{p.name}</div>
+                    <div style={{ fontSize:12, color:p.stock<100?"#dc2626":"var(--muted)" }}>Stock: {p.stock} {p.unit}</div>
+                    <div className="inventory-bar"><div className="inventory-fill" style={{ width:`${Math.min(100,(p.stock/200)*100)}%`, background:p.stock<100?"#ef4444":undefined }} /></div>
+                  </div>
+                  <button className="btn btn-primary btn-sm" onClick={()=>setReorderModal(p)}>Reorder</button>
                 </div>
-                <button className="btn btn-primary btn-sm">Reorder</button>
-              </div>
-            ))}
+              ))}
           </div>
         </div>
       </div>
+      {/* Reorder Modal */}
+      {reorderModal && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000 }}>
+          <div style={{ background:"white", borderRadius:16, padding:32, width:400, boxShadow:"0 20px 60px rgba(0,0,0,0.2)" }}>
+            <h3 style={{ fontFamily:"Syne", marginBottom:16 }}>Reorder: {reorderModal.name}</h3>
+            {reorderMsg ? <div style={{ padding:12, background:"#dcfce7", borderRadius:8, color:"#15803d" }}>{reorderMsg}</div> : (
+              <>
+                <div className="form-group"><label className="form-label">Quantity to Order</label>
+                  <input className="form-input" type="number" placeholder="e.g. 500" value={reorderQty} onChange={e=>setReorderQty(e.target.value)} autoFocus /></div>
+                <div className="flex gap-2">
+                  <button className="btn btn-primary" onClick={submitReorder}>Submit Reorder</button>
+                  <button className="btn btn-secondary" onClick={()=>setReorderModal(null)}>Cancel</button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </RetailLayout>
   );
 }
 
 function RetailerInventory() {
+  const { allProducts } = useProducts();
+  const [inventory, setInventory] = useState([]);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ name:"", category:"Grains", stock:"", unit:"kg", price:"", origin:"" });
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  useEffect(()=>{ setInventory([...allProducts]); },[allProducts]);
+
+  const addItem = () => {
+    if (!form.name||!form.stock) return;
+    const newItem = { id:Date.now(), ...form, price:Number(form.price), stock:Number(form.stock), icon:CATEGORY_ICONS[form.category]||"", farmerName:"My Stock", rating:"4.5", desc:"" };
+    const updated = [newItem,...inventory];
+    setInventory(updated);
+    setShowForm(false);
+    setForm({ name:"", category:"Grains", stock:"", unit:"kg", price:"", origin:"" });
+  };
+
   return (
     <RetailLayout title="Inventory">
       <div className="page-header flex items-center justify-between">
-        <div><div className="page-title">Inventory</div><div className="page-sub">Manage your product stock levels</div></div>
-        <div className="flex gap-2"><button className="btn btn-secondary">📥 Import</button><button className="btn btn-primary">+ Add Item</button></div>
+        <div><div className="page-title">Inventory</div><div className="page-sub">{inventory.length} items</div></div>
+        <button className="btn btn-primary" onClick={()=>setShowForm(v=>!v)}>+ Add Item</button>
       </div>
+      {showForm && (
+        <div className="card card-pad mb-6">
+          <div className="section-title">Add Inventory Item</div>
+          <div className="grid-2">
+            <div className="form-group"><label className="form-label">Name</label><input className="form-input" value={form.name} onChange={e=>set("name",e.target.value)} /></div>
+            <div className="form-group"><label className="form-label">Category</label>
+              <select className="form-input form-select" value={form.category} onChange={e=>set("category",e.target.value)}>
+                {CATEGORIES.map(c=><option key={c}>{c}</option>)}
+              </select>
+            </div>
+            <div className="form-group"><label className="form-label">Stock</label><input className="form-input" type="number" value={form.stock} onChange={e=>set("stock",e.target.value)} /></div>
+            <div className="form-group"><label className="form-label">Unit</label><input className="form-input" value={form.unit} onChange={e=>set("unit",e.target.value)} /></div>
+            <div className="form-group"><label className="form-label">Price (₹)</label><input className="form-input" type="number" value={form.price} onChange={e=>set("price",e.target.value)} /></div>
+            <div className="form-group"><label className="form-label">Origin</label><input className="form-input" value={form.origin} onChange={e=>set("origin",e.target.value)} /></div>
+          </div>
+          <div className="flex gap-2"><button className="btn btn-primary" onClick={addItem}>Add Item</button><button className="btn btn-secondary" onClick={()=>setShowForm(false)}>Cancel</button></div>
+        </div>
+      )}
       <div className="card">
         <div className="table-wrap">
           <table>
             <thead><tr><th>Product</th><th>Category</th><th>Stock</th><th>Level</th><th>Price</th><th>Origin</th><th>Status</th></tr></thead>
             <tbody>
-              {PRODUCTS.map(p => (
+              {inventory.map(p=>(
                 <tr key={p.id}>
-                  <td><div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ fontSize: 20 }}>{p.icon}</span><strong>{p.name}</strong></div></td>
+                  <td><div style={{ display:"flex", alignItems:"center", gap:10 }}><span style={{ fontSize:20 }}>{CATEGORY_ICONS[p.category]||p.icon||"🌾"}</span><strong>{p.name}</strong></div></td>
                   <td>{p.category}</td>
                   <td>{p.stock} {p.unit}</td>
-                  <td style={{ width: 120 }}><div className="inventory-bar"><div className="inventory-fill" style={{ width: `${Math.min(100, (p.stock / 500) * 100)}%`, background: p.stock < 100 ? "#ef4444" : undefined }} /></div></td>
+                  <td style={{ width:120 }}><div className="inventory-bar"><div className="inventory-fill" style={{ width:`${Math.min(100,(p.stock/500)*100)}%`, background:p.stock<100?"#ef4444":undefined }} /></div></td>
                   <td>₹{p.price}/{p.unit}</td>
                   <td>{p.origin}</td>
-                  <td><span className={`pill ${p.stock > 200 ? "pill-green" : p.stock > 100 ? "pill-yellow" : "pill-red"}`}>{p.stock > 200 ? "Good" : p.stock > 100 ? "Low" : "Critical"}</span></td>
+                  <td><span className={`pill ${p.stock>200?"pill-green":p.stock>100?"pill-yellow":"pill-red"}`}>{p.stock>200?"Good":p.stock>100?"Low":"Critical"}</span></td>
                 </tr>
               ))}
             </tbody>
@@ -1201,104 +1691,175 @@ function RetailerInventory() {
 }
 
 function RetailerListings() {
+  const { allProducts, refreshProducts } = useProducts();
+  const [editModal, setEditModal] = useState(null);
+  const [editForm, setEditForm] = useState({});
+
+  const openEdit = (p) => { setEditModal(p); setEditForm({ name:p.name, price:p.price, desc:p.desc||"" }); };
+
+  const saveEdit = () => {
+    const saved = storage.get("products",[]);
+    const updated = saved.map(p=>p.id===editModal.id?{...p,...editForm,price:Number(editForm.price)}:p);
+    storage.set("products",updated);
+    refreshProducts();
+    setEditModal(null);
+  };
+
+  const deleteProduct = (id) => {
+    if (!confirm("Delete this product?")) return;
+    const saved = storage.get("products",[]);
+    storage.set("products", saved.filter(p=>p.id!==id));
+    refreshProducts();
+  };
+
   return (
     <RetailLayout title="Product Listings">
       <div className="page-header flex items-center justify-between">
-        <div><div className="page-title">Product Listings</div><div className="page-sub">Manage what appears in the marketplace</div></div>
-        <button className="btn btn-primary">+ New Listing</button>
+        <div><div className="page-title">Product Listings</div><div className="page-sub">Manage marketplace products</div></div>
       </div>
       <div className="products-grid">
-        {PRODUCTS.slice(0, 6).map(p => (
-          <div key={p.id} className="product-card" style={{ cursor: "default" }}>
-            <div className="product-img">{p.icon}</div>
+        {allProducts.map(p=>(
+          <div key={p.id} className="product-card" style={{ cursor:"default" }}>
+            <div className="product-img"><ProductImage product={p} /></div>
             <div className="product-info">
               <div className="product-name">{p.name}</div>
-              <div className="product-farmer">{p.origin}</div>
+              <div className="product-farmer">{p.category} · {p.origin}</div>
               <div className="product-meta">
-                <div className="product-price">₹{p.price}</div>
-                <span className="pill pill-green" style={{ fontSize: 11 }}>Listed ✓</span>
+                <div className="product-price">₹{p.price}<span style={{ fontSize:12, fontWeight:400 }}>/{p.unit}</span></div>
+                <span className="pill pill-green" style={{ fontSize:11 }}>Listed ✓</span>
               </div>
-              <div className="flex gap-2 mt-4"><button className="btn btn-secondary btn-sm">Edit</button><button className="btn btn-danger btn-sm">Delist</button></div>
+              <div className="flex gap-2 mt-4">
+                <button className="btn btn-secondary btn-sm" onClick={()=>openEdit(p)}>✏️ Edit</button>
+                {p.addedByFarmer && <button className="btn btn-danger btn-sm" onClick={()=>deleteProduct(p.id)}>🗑️ Delete</button>}
+              </div>
             </div>
           </div>
         ))}
       </div>
+      {editModal && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000 }}>
+          <div style={{ background:"white", borderRadius:16, padding:32, width:440, boxShadow:"0 20px 60px rgba(0,0,0,0.2)" }}>
+            <h3 style={{ fontFamily:"Syne", marginBottom:16 }}>Edit: {editModal.name}</h3>
+            <div className="form-group"><label className="form-label">Name</label><input className="form-input" value={editForm.name} onChange={e=>setEditForm(f=>({...f,name:e.target.value}))} /></div>
+            <div className="form-group"><label className="form-label">Price (₹)</label><input className="form-input" type="number" value={editForm.price} onChange={e=>setEditForm(f=>({...f,price:e.target.value}))} /></div>
+            <div className="form-group"><label className="form-label">Description</label><textarea className="form-input" value={editForm.desc} onChange={e=>setEditForm(f=>({...f,desc:e.target.value}))} style={{ minHeight:80 }} /></div>
+            <div className="flex gap-2"><button className="btn btn-primary" onClick={saveEdit}>Save Changes</button><button className="btn btn-secondary" onClick={()=>setEditModal(null)}>Cancel</button></div>
+          </div>
+        </div>
+      )}
     </RetailLayout>
   );
 }
 
 function RetailerOrders() {
-  const orders = [
-    { id: "ORD-4501", customer: "Meera Nair", product: "Alphonso Mangoes", qty: 2, amount: 640, status: "delivered", date: "Mar 9" },
-    { id: "ORD-4502", customer: "Rajan S.", product: "Organic Rice", qty: 5, amount: 425, status: "processing", date: "Mar 9" },
-    { id: "ORD-4503", customer: "Anita K.", product: "A2 Cow Ghee", qty: 1, amount: 850, status: "shipped", date: "Mar 8" },
-    { id: "ORD-4504", customer: "Vikram R.", product: "Turmeric Powder", qty: 3, amount: 480, status: "pending", date: "Mar 8" },
-  ];
+  const [orders, setOrders] = useState([]);
+  useEffect(()=>{ setOrders(storage.get("demo_orders",[]).reverse()); },[]);
+  const update = (id, status) => {
+    const updated = orders.map(o=>o.id===id?{...o,status}:o);
+    setOrders(updated);
+    storage.set("demo_orders",[...updated].reverse());
+  };
   return (
-    <RetailLayout title="Order Management">
-      <div className="page-header"><div className="page-title">Orders</div><div className="page-sub">Manage customer orders</div></div>
+    <RetailLayout title="Orders">
+      <div className="page-header"><div className="page-title">Orders</div><div className="page-sub">Incoming customer orders</div></div>
       <div className="card">
         <div className="table-wrap">
-          <table>
-            <thead><tr><th>Order ID</th><th>Customer</th><th>Product</th><th>Qty</th><th>Amount</th><th>Date</th><th>Status</th></tr></thead>
-            <tbody>
-              {orders.map(o => (
-                <tr key={o.id}>
-                  <td><strong>{o.id}</strong></td><td>{o.customer}</td><td>{o.product}</td><td>{o.qty}</td>
-                  <td>₹{o.amount}</td><td>{o.date}</td>
-                  <td><span className={`pill ${o.status === "delivered" ? "pill-green" : o.status === "shipped" ? "pill-blue" : o.status === "processing" ? "pill-yellow" : "pill-gray"}`}>{o.status}</span></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {orders.length===0 ? <div style={{ padding:40, textAlign:"center", color:"var(--muted)" }}>No orders yet.</div> : (
+            <table>
+              <thead><tr><th>Order ID</th><th>Items</th><th>Amount</th><th>Date</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody>
+                {orders.map(o=>(
+                  <tr key={o.id}>
+                    <td><strong>{o.orderCode}</strong></td>
+                    <td>{(o.items||[]).map(i=>`${i.name} x${i.qty}`).join(", ")}</td>
+                    <td>₹{Number(o.totalAmount||0).toLocaleString("en-IN")}</td>
+                    <td>{o.createdAt?new Date(o.createdAt).toLocaleDateString("en-IN"):"—"}</td>
+                    <td><span className={`pill ${statusClass(o.status)}`}>{(o.status||"").toLowerCase()}</span></td>
+                    <td>
+                      {(o.status||"").toUpperCase()==="PENDING"&&<button className="btn btn-primary btn-sm" onClick={()=>update(o.id,"PROCESSING")}>Process</button>}
+                      {(o.status||"").toUpperCase()==="PROCESSING"&&<button className="btn btn-primary btn-sm" onClick={()=>update(o.id,"SHIPPED")}>Ship</button>}
+                      {(o.status||"").toUpperCase()==="SHIPPED"&&<button className="btn btn-primary btn-sm" onClick={()=>update(o.id,"DELIVERED")}>Delivered</button>}
+                      {(o.status||"").toUpperCase()==="DELIVERED"&&<span className="pill pill-green">Done</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </RetailLayout>
   );
 }
 
-// ─── CONSUMER ─────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// CONSUMER
+// ══════════════════════════════════════════════════════════════════════════════
+const CONSUMER_NAV = [
+  { label:"Main", items:[
+    { icon:"+", label:"Marketplace", href:"/marketplace" },
+    { icon:"◈", label:"My Cart", href:"/consumer/cart" },
+    { icon:"◫", label:"My Orders", href:"/consumer/orders" },
+    { icon:"▣", label:"QR Scan", href:"/consumer/qr-scan" },
+  ]},
+  { label:"Account", items:[{ icon:"?", label:"Help", href:"/help" }] },
+];
+
+function ConsumerLayout({ title, children }) {
+  const { user } = useAuth();
+  const { cartItems } = useCart();
+  return (
+    <div className="app-shell">
+      <Sidebar role="Consumer" nav={CONSUMER_NAV} user={user||{ name:"Consumer" }} />
+      <div className="main-content with-sidebar"><Topbar title={title} cartCount={cartItems.length} /><div className="page-body">{children}</div></div>
+      <ChatBot />
+    </div>
+  );
+}
+
 function CartPage() {
   const { cartItems, removeFromCart, updateQty } = useCart();
-  const total = cartItems.reduce((s, i) => s + i.price * i.qty, 0);
+  const total = cartItems.reduce((s,i)=>s+i.price*i.qty,0);
   return (
     <div>
       <PublicNav cartCount={cartItems.length} />
-      <div style={{ padding: "28px 32px", maxWidth: 900, margin: "0 auto" }}>
-        <div className="page-header"><div className="page-title">Shopping Cart 🛒</div><div className="page-sub">{cartItems.length} items</div></div>
-        <div className="grid-2" style={{ alignItems: "start" }}>
+      <div style={{ padding:"28px 32px", maxWidth:900, margin:"0 auto" }}>
+        <div className="page-header"><div className="page-title">Shopping Cart </div><div className="page-sub">{cartItems.length} items</div></div>
+        <div className="grid-2" style={{ alignItems:"start" }}>
           <div className="card card-pad">
-            {cartItems.length === 0 ? (
-              <div className="empty-state"><div className="empty-icon">🛒</div><div className="empty-title">Cart is Empty</div><div className="empty-desc">Browse the marketplace to add products</div><Link to="/marketplace"><button className="btn btn-primary" style={{ marginTop: 16 }}>Shop Now</button></Link></div>
-            ) : cartItems.map(item => (
+            {cartItems.length===0 ? (
+              <div className="empty-state"><div className="empty-icon">🛒</div><div className="empty-title">Cart is Empty</div>
+                <Link to="/marketplace"><button className="btn btn-primary" style={{ marginTop:16 }}>Shop Now</button></Link></div>
+            ) : cartItems.map(item=>(
               <div className="cart-item" key={item.id}>
-                <div className="cart-item-img">{item.icon}</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700 }}>{item.name}</div>
-                  <div style={{ fontSize: 13, color: "var(--muted)" }}>{item.farmer}</div>
-                  <div style={{ fontWeight: 700, color: "var(--pine)", marginTop: 4 }}>₹{item.price}/{item.unit}</div>
+                <div className="cart-item-img">
+                  {item.image ? <img src={item.image} style={{ width:"100%", height:"100%", objectFit:"cover", borderRadius:10 }} /> : CATEGORY_ICONS[item.category]||""}
+                </div>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontWeight:700 }}>{item.name}</div>
+                  <div style={{ fontSize:13, color:"var(--muted)" }}>{item.farmerName||item.farmer}</div>
+                  <div style={{ fontWeight:700, color:"var(--pine)", marginTop:4 }}>₹{item.price}/{item.unit}</div>
                 </div>
                 <div className="qty-ctrl">
-                  <button className="qty-btn" onClick={() => updateQty(item.id, item.qty - 1)}>−</button>
-                  <span style={{ fontWeight: 700, minWidth: 20, textAlign: "center" }}>{item.qty}</span>
-                  <button className="qty-btn" onClick={() => updateQty(item.id, item.qty + 1)}>+</button>
+                  <button className="qty-btn" onClick={()=>updateQty(item.id,item.qty-1)}>−</button>
+                  <span style={{ fontWeight:700, minWidth:20, textAlign:"center" }}>{item.qty}</span>
+                  <button className="qty-btn" onClick={()=>updateQty(item.id,item.qty+1)}>+</button>
                 </div>
-                <div style={{ fontWeight: 700, minWidth: 70, textAlign: "right" }}>₹{item.price * item.qty}</div>
-                <button className="btn btn-danger btn-sm" onClick={() => removeFromCart(item.id)}>✕</button>
+                <div style={{ fontWeight:700, minWidth:70, textAlign:"right" }}>₹{item.price*item.qty}</div>
+                <button className="btn btn-danger btn-sm" onClick={()=>removeFromCart(item.id)}>✕</button>
               </div>
             ))}
           </div>
           <div className="card card-pad">
             <div className="section-title">Order Summary</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+            <div style={{ display:"flex", flexDirection:"column", gap:10, marginBottom:16 }}>
               <div className="flex justify-between"><span>Subtotal</span><strong>₹{total}</strong></div>
-              <div className="flex justify-between"><span>Delivery</span><strong style={{ color: "#16a34a" }}>FREE</strong></div>
-              <div className="flex justify-between"><span>Platform Fee</span><strong>₹10</strong></div>
+              <div className="flex justify-between"><span>Delivery</span><strong style={{ color:"#16a34a" }}>FREE</strong></div>
               <hr className="divider" />
-              <div className="flex justify-between"><span style={{ fontWeight: 700, fontSize: 16 }}>Total</span><strong style={{ fontSize: 20, color: "var(--pine)" }}>₹{total + 10}</strong></div>
+              <div className="flex justify-between"><span style={{ fontWeight:700, fontSize:16 }}>Total</span><strong style={{ fontSize:20, color:"var(--pine)" }}>₹{total}</strong></div>
             </div>
-            <Link to="/consumer/checkout"><button className="btn btn-primary w-full btn-lg">Proceed to Checkout →</button></Link>
-            <Link to="/marketplace"><button className="btn btn-secondary w-full" style={{ marginTop: 10 }}>Continue Shopping</button></Link>
+            <Link to="/consumer/checkout"><button className="btn btn-primary w-full btn-lg" disabled={cartItems.length===0}>Proceed to Checkout →</button></Link>
+            <Link to="/marketplace"><button className="btn btn-secondary w-full" style={{ marginTop:10 }}>Continue Shopping</button></Link>
           </div>
         </div>
       </div>
@@ -1307,52 +1868,81 @@ function CartPage() {
 }
 
 function CheckoutPage() {
-  const { cartItems } = useCart();
-  const total = cartItems.reduce((s, i) => s + i.price * i.qty, 0);
+  const { cartItems, clearCart } = useCart();
+  const { navigate } = useRouter();
+  const total = cartItems.reduce((s,i)=>s+Number(i.price)*i.qty,0);
+  const [form, setForm] = useState({ name:"", phone:"", address:"", city:"", pincode:"", payment:"UPI" });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  const handlePlaceOrder = () => {
+    if (!form.name||!form.address||!form.city) { setError("Please fill in delivery details."); return; }
+    if (cartItems.length===0) { setError("Your cart is empty."); return; }
+    setSubmitting(true);
+    const order = {
+      id: Date.now(),
+      orderCode: "ORD-"+Math.random().toString(36).substr(2,6).toUpperCase(),
+      items: cartItems,
+      totalAmount: total,
+      deliveryAddress: `${form.name}, ${form.address}, ${form.city} - ${form.pincode}`,
+      paymentMethod: form.payment,
+      status: "PENDING",
+      createdAt: new Date().toISOString(),
+    };
+    const existing = storage.get("demo_orders",[]);
+    existing.push(order);
+    storage.set("demo_orders", existing);
+    clearCart();
+    setSubmitting(false);
+    navigate("/consumer/orders");
+  };
+
   return (
     <div>
       <PublicNav cartCount={cartItems.length} />
-      <div style={{ padding: "28px 32px", maxWidth: 900, margin: "0 auto" }}>
+      <div style={{ padding:"28px 32px", maxWidth:900, margin:"0 auto" }}>
         <div className="page-header"><div className="page-title">Checkout</div></div>
-        <div className="grid-2" style={{ alignItems: "start" }}>
+        {error&&<div style={{ padding:"10px 16px", borderRadius:8, marginBottom:16, background:"#fee2e2", color:"#991b1b", fontSize:14 }}>{error}</div>}
+        <div className="grid-2" style={{ alignItems:"start" }}>
           <div>
             <div className="card card-pad mb-4">
-              <div className="section-title">📍 Delivery Address</div>
+              <div className="section-title"> Delivery Address</div>
               <div className="grid-2">
-                <div className="form-group"><label className="form-label">Full Name</label><input className="form-input" placeholder="Meera Nair" /></div>
-                <div className="form-group"><label className="form-label">Phone</label><input className="form-input" placeholder="+91 98xxx xxxxx" /></div>
+                <div className="form-group"><label className="form-label">Full Name</label><input className="form-input" value={form.name} onChange={e=>set("name",e.target.value)} /></div>
+                <div className="form-group"><label className="form-label">Phone</label><input className="form-input" value={form.phone} onChange={e=>set("phone",e.target.value)} /></div>
               </div>
-              <div className="form-group"><label className="form-label">Address</label><input className="form-input" placeholder="House No, Street, Area" /></div>
+              <div className="form-group"><label className="form-label">Address</label><input className="form-input" value={form.address} onChange={e=>set("address",e.target.value)} /></div>
               <div className="grid-2">
-                <div className="form-group"><label className="form-label">City</label><input className="form-input" placeholder="Mumbai" /></div>
-                <div className="form-group"><label className="form-label">Pincode</label><input className="form-input" placeholder="400001" /></div>
+                <div className="form-group"><label className="form-label">City</label><input className="form-input" value={form.city} onChange={e=>set("city",e.target.value)} /></div>
+                <div className="form-group"><label className="form-label">Pincode</label><input className="form-input" value={form.pincode} onChange={e=>set("pincode",e.target.value)} /></div>
               </div>
             </div>
             <div className="card card-pad">
-              <div className="section-title">💳 Payment</div>
-              <div className="flex gap-3 mb-4" style={{ flexWrap: "wrap" }}>
-                {["UPI", "Card", "Net Banking", "Cash on Delivery"].map(m => (
-                  <label key={m} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 14, fontWeight: 500 }}>
-                    <input type="radio" name="pay" defaultChecked={m === "UPI"} /> {m}
+              <div className="section-title"> Payment</div>
+              <div className="flex gap-3 mb-4" style={{ flexWrap:"wrap" }}>
+                {["UPI","Card","Net Banking","Cash on Delivery"].map(m=>(
+                  <label key={m} style={{ display:"flex", alignItems:"center", gap:6, cursor:"pointer", fontSize:14, fontWeight:500 }}>
+                    <input type="radio" name="pay" checked={form.payment===m} onChange={()=>set("payment",m)} /> {m}
                   </label>
                 ))}
               </div>
-              <div className="form-group"><label className="form-label">UPI ID</label><input className="form-input" placeholder="name@upi" /></div>
+              {form.payment==="UPI"&&<div className="form-group"><label className="form-label">UPI ID</label><input className="form-input" placeholder="name@upi" /></div>}
             </div>
           </div>
           <div className="card card-pad">
             <div className="section-title">Order Items ({cartItems.length})</div>
-            {cartItems.map(i => (
-              <div key={i.id} className="flex justify-between items-center" style={{ padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 20 }}>{i.icon}</span>
-                  <div><div style={{ fontWeight: 600, fontSize: 13 }}>{i.name}</div><div style={{ fontSize: 12, color: "var(--muted)" }}>x{i.qty}</div></div>
+            {cartItems.map(i=>(
+              <div key={i.id} className="flex justify-between items-center" style={{ padding:"8px 0", borderBottom:"1px solid var(--border)" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <span style={{ fontSize:20 }}>{CATEGORY_ICONS[i.category]||""}</span>
+                  <div><div style={{ fontWeight:600, fontSize:13 }}>{i.name}</div><div style={{ fontSize:12, color:"var(--muted)" }}>x{i.qty}</div></div>
                 </div>
-                <strong>₹{i.price * i.qty}</strong>
+                <strong>₹{Number(i.price)*i.qty}</strong>
               </div>
             ))}
-            <div className="flex justify-between mt-4"><span style={{ fontWeight: 700 }}>Total</span><strong style={{ color: "var(--pine)", fontSize: 18 }}>₹{total + 10}</strong></div>
-            <Link to="/consumer/order-tracking"><button className="btn btn-primary w-full btn-lg" style={{ marginTop: 16 }}>Place Order ✓</button></Link>
+            <div className="flex justify-between mt-4"><span style={{ fontWeight:700 }}>Total</span><strong style={{ color:"var(--pine)", fontSize:18 }}>₹{total}</strong></div>
+            <button className="btn btn-primary w-full btn-lg" style={{ marginTop:16 }} onClick={handlePlaceOrder} disabled={submitting}>{submitting?"Placing Order...":"Place Order"}</button>
           </div>
         </div>
       </div>
@@ -1360,202 +1950,249 @@ function CheckoutPage() {
   );
 }
 
-function OrderTrackingPage() {
+function ConsumerOrders() {
+  const [orders, setOrders] = useState([]);
+  useEffect(()=>{ setOrders([...storage.get("demo_orders",[])].reverse()); },[]);
+
   return (
-    <div>
-      <PublicNav cartCount={0} />
-      <div style={{ padding: "28px 32px", maxWidth: 700, margin: "0 auto" }}>
-        <div className="page-header"><div className="page-title">Order Tracking 📍</div><div className="page-sub">Order #ORD-4508 · Placed Mar 10, 2024</div></div>
-        <div className="card card-pad mb-4">
-          <div style={{ textAlign: "center", padding: "20px 0" }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>🚚</div>
-            <div style={{ fontFamily: "Syne", fontSize: 20, fontWeight: 800, marginBottom: 4 }}>Your Order is on the Way!</div>
-            <div style={{ color: "var(--muted)" }}>Expected delivery: <strong>March 12, 2024</strong></div>
-          </div>
-        </div>
-        <div className="card card-pad">
-          <div className="section-title">📦 Tracking Timeline</div>
-          <div className="timeline">
-            {[
-              { label: "Order Placed", meta: "Mar 10, 2:30 PM · Payment confirmed", done: true },
-              { label: "Farmer Dispatched", meta: "Ravi Kumar Farm, Punjab", done: true },
-              { label: "Picked by Distributor", meta: "TransAgri Logistics", done: true },
-              { label: "In Transit to Your City", meta: "Expected: Mar 11", done: false },
-              { label: "Out for Delivery", meta: "Expected: Mar 12", done: false, pending: true },
-              { label: "Delivered", meta: "Expected: Mar 12, 6 PM", done: false, pending: true },
-            ].map((t, i) => (
-              <div className="timeline-item" key={i}>
-                <div className={`timeline-dot ${t.done ? "done" : t.pending ? "pending" : ""}`} />
-                <div className="timeline-title">{t.label}</div>
-                <div className="timeline-meta">{t.meta}</div>
+    <ConsumerLayout title="My Orders">
+      <div className="page-header"><div className="page-title">My Orders </div><div className="page-sub">{orders.length} order{orders.length!==1?"s":""} placed</div></div>
+      {orders.length===0 ? (
+        <div className="empty-state"><div className="empty-icon">📦</div><div className="empty-title">No Orders Yet</div><div className="empty-desc">Browse the marketplace and place your first order!</div>
+          <Link to="/marketplace"><button className="btn btn-primary" style={{ marginTop:16 }}>Shop Now →</button></Link></div>
+      ) : (
+        <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+          {orders.map(o=>(
+            <div key={o.id} className="card card-pad">
+              <div className="flex justify-between items-center" style={{ marginBottom:12 }}>
+                <div>
+                  <div style={{ fontFamily:"Syne", fontWeight:700, fontSize:16 }}>{o.orderCode}</div>
+                  <div style={{ fontSize:13, color:"var(--muted)" }}>{o.createdAt?new Date(o.createdAt).toLocaleDateString("en-IN",{ day:"numeric", month:"short", year:"numeric" }):"—"}</div>
+                </div>
+                <span className={`pill ${statusClass(o.status)}`}>{(o.status||"pending").toLowerCase()}</span>
               </div>
-            ))}
-          </div>
+              <div style={{ borderTop:"1px solid var(--border)", paddingTop:12, marginBottom:12 }}>
+                {(o.items||[]).map((item,i)=>(
+                  <div key={i} className="flex justify-between items-center" style={{ padding:"6px 0" }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                      <span style={{ fontSize:20 }}>{CATEGORY_ICONS[item.category]||""}</span>
+                      <div><div style={{ fontWeight:600, fontSize:14 }}>{item.name}</div><div style={{ fontSize:12, color:"var(--muted)" }}>x{item.qty} · ₹{item.price}/{item.unit}</div></div>
+                    </div>
+                    <strong>₹{Number(item.price)*item.qty}</strong>
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-between items-center" style={{ borderTop:"1px solid var(--border)", paddingTop:12 }}>
+                <div style={{ fontSize:13, color:"var(--muted)" }}>📍 {o.deliveryAddress} · 💳 {o.paymentMethod}</div>
+                <div style={{ fontFamily:"Syne", fontWeight:800, fontSize:18, color:"var(--pine)" }}>₹{Number(o.totalAmount||0).toLocaleString("en-IN")}</div>
+              </div>
+            </div>
+          ))}
         </div>
-      </div>
-    </div>
+      )}
+    </ConsumerLayout>
   );
 }
 
 function QRScanPage() {
+  const [batchId, setBatchId] = useState("");
+  const [result, setResult] = useState(null);
+  const { cartItems } = useCart();
+  const allBatches = storage.get("demo_batches",[]);
+
+  const trace = () => {
+    if (!batchId.trim()) return;
+    const found = allBatches.find(b=>b.batchCode===batchId.trim().toUpperCase());
+    setResult(found || { notFound:true });
+  };
+
   return (
     <div>
-      <PublicNav cartCount={0} />
-      <div style={{ padding: "28px 32px", maxWidth: 600, margin: "0 auto", textAlign: "center" }}>
-        <div className="page-header"><div className="page-title">QR Traceability</div><div className="page-sub">Scan or enter batch ID to trace product origin</div></div>
-        <div className="card card-pad" style={{ marginBottom: 20 }}>
-          <div style={{ background: "linear-gradient(135deg, var(--lime), var(--sage))", borderRadius: 12, height: 200, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12, marginBottom: 20 }}>
-            <div style={{ fontSize: 48 }}>📷</div>
-            <div style={{ color: "white", fontWeight: 700 }}>Camera Scanner</div>
-            <div style={{ fontSize: 13, color: "rgba(255,255,255,0.8)" }}>Point camera at product QR code</div>
+      <PublicNav cartCount={cartItems.length} />
+      <div style={{ padding:"28px 32px", maxWidth:600, margin:"0 auto" }}>
+        <div className="page-header"><div className="page-title">QR Traceability</div><div className="page-sub">Scan or enter a batch ID to trace product origin</div></div>
+        <div className="card card-pad" style={{ marginBottom:20 }}>
+          <div style={{ background:"linear-gradient(135deg, var(--lime), var(--sage))", borderRadius:12, height:160, display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:8, marginBottom:16 }}>
+            <div style={{ fontSize:40 }}>📷</div>
+            <div style={{ color:"white", fontWeight:700 }}>Camera Scanner</div>
+            <div style={{ fontSize:12, color:"rgba(255,255,255,0.8)" }}>Point camera at product QR code</div>
           </div>
-          <div className="form-group" style={{ display: "flex", gap: 10 }}>
-            <input className="form-input" placeholder="Or enter Batch ID e.g. BCH-001" style={{ flex: 1 }} />
-            <button className="btn btn-primary">Trace</button>
-          </div>
-        </div>
-        <div className="card card-pad" style={{ textAlign: "left" }}>
-          <div className="section-title">🌾 Trace Result: BCH-001</div>
-          <div className="grid-2">
-            {[["Product", "Organic Basmati Rice"], ["Farmer", "Ravi Kumar"], ["Farm", "Amritsar, Punjab"], ["Harvest", "Feb 28, 2024"], ["Certified", "FSSAI + Organic"], ["Journey", "Farm → Delhi → Retailer"]].map(([k, v]) => (
-              <div key={k} style={{ marginBottom: 10 }}><div style={{ fontSize: 12, color: "var(--muted)" }}>{k}</div><div style={{ fontWeight: 600 }}>{v}</div></div>
-            ))}
-          </div>
-          <div style={{ marginTop: 12, padding: 12, background: "#dcfce7", borderRadius: 8, color: "#15803d", fontWeight: 600, fontSize: 14 }}>
-            ✅ Verified — This product's supply chain is fully transparent and certified
+          <div style={{ display:"flex", gap:10 }}>
+            <input className="form-input" placeholder="Or enter Batch ID e.g. BCH-001" value={batchId} onChange={e=>setBatchId(e.target.value)} onKeyDown={e=>e.key==="Enter"&&trace()} style={{ flex:1 }} />
+            <button className="btn btn-primary" onClick={trace}>Trace</button>
           </div>
         </div>
+        {result && (
+          <div className="card card-pad">
+            {result.notFound ? (
+              <div style={{ textAlign:"center", color:"#dc2626", padding:20 }}>❌ Batch "{batchId}" not found.</div>
+            ) : (
+              <>
+                <div className="section-title"> Trace Result: {result.batchCode}</div>
+                <div className="grid-2">
+                  {[["Product",result.productName],["Batch",result.batchCode],["Quantity",result.quantity],["Location",result.farmLocation||"—"],["Harvest",result.harvestDate||"—"],["Certified",result.certified?"Yes":"No"]].map(([k,v])=>(
+                    <div key={k} style={{ marginBottom:10 }}><div style={{ fontSize:12, color:"var(--muted)" }}>{k}</div><div style={{ fontWeight:600 }}>{v}</div></div>
+                  ))}
+                </div>
+                <div style={{ marginTop:12, padding:12, background:"#dcfce7", borderRadius:8, color:"#15803d", fontWeight:600, fontSize:14 }}>
+                  Verified — Supply chain transparent and certified
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
       <ChatBot />
     </div>
   );
 }
 
-
-
-// ─── HELP CENTER ──────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// HELP PAGE
+// ══════════════════════════════════════════════════════════════════════════════
 function HelpPage() {
+  const { cartItems } = useCart();
   const faqs = [
-    ["How do I create a new batch?", "Go to Farmer Dashboard → Create Batch, fill in product details and submit. Your batch will appear in My Batches once approved."],
-    ["How does QR traceability work?", "Each batch generates a unique QR code. Consumers scan it to see the complete farm-to-fork journey including certifications."],
-    ["When do I receive payment?", "Payments are settled within 3-5 business days after delivery confirmation by the retailer."],
-    ["How do I become certified organic?", "Upload FSSAI or organic certification documents in your profile. Our team verifies and adds the badge within 48 hours."],
-    ["What if my shipment is delayed?", "Contact your assigned distributor through the messaging system or raise a support ticket for assistance."],
+    ["How do I create a new batch?","Go to Farmer Dashboard → Create Batch, fill in product details and submit."],
+    ["How does QR traceability work?","Each batch generates a unique QR code. Consumers scan it to see the full farm-to-fork journey."],
+    ["When do I receive payment?","Payments are settled within 3-5 business days after delivery confirmation."],
+    ["How do I become certified organic?","Upload FSSAI certification documents in your profile. Verified within 48 hours."],
+    ["What if my shipment is delayed?","Contact your assigned distributor or raise a support ticket."],
   ];
   return (
     <div>
-      <PublicNav cartCount={0} />
-      <div style={{ background: "var(--forest)", color: "white", padding: "48px 32px", textAlign: "center" }}>
-        <div style={{ fontSize: 40, marginBottom: 12 }}>❓</div>
-        <h1 style={{ fontFamily: "Syne", fontSize: 32, fontWeight: 800, marginBottom: 8 }}>Help Center</h1>
-        <p style={{ opacity: 0.8, marginBottom: 20 }}>Find answers to common questions</p>
-        <div style={{ display: "flex", gap: 8, maxWidth: 480, margin: "0 auto" }}>
-          <input className="form-input" placeholder="Search help articles..." style={{ flex: 1 }} />
-          <button className="btn btn-primary">Search</button>
-        </div>
+      <PublicNav cartCount={cartItems.length} />
+      <div style={{ background:"var(--forest)", color:"white", padding:"48px 32px", textAlign:"center" }}>
+        <div style={{ fontSize:40, marginBottom:12 }}>❓</div>
+        <h1 style={{ fontFamily:"Syne", fontSize:32, fontWeight:800, marginBottom:8 }}>Help Center</h1>
+        <p style={{ opacity:0.8 }}>Find answers to common questions</p>
       </div>
-      <div style={{ padding: "48px 32px", maxWidth: 800, margin: "0 auto" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 16, marginBottom: 40 }}>
-          {[["📦", "Batches"], ["🚚", "Shipments"], ["💰", "Payments"], ["🌿", "Certifications"], ["📱", "QR Codes"], ["🎫", "Tickets"]].map(([i, l]) => (
-            <div key={l} style={{ background: "white", border: "1px solid var(--border)", borderRadius: 12, padding: "20px 16px", textAlign: "center", cursor: "pointer", transition: "all .15s" }}>
-              <div style={{ fontSize: 28, marginBottom: 8 }}>{i}</div>
-              <div style={{ fontWeight: 600, fontSize: 14 }}>{l}</div>
-            </div>
-          ))}
-        </div>
-        <h2 style={{ fontFamily: "Syne", fontSize: 22, fontWeight: 800, marginBottom: 20 }}>Frequently Asked Questions</h2>
-        {faqs.map(([q, a]) => (
-          <div key={q} style={{ background: "white", border: "1px solid var(--border)", borderRadius: 12, padding: "20px", marginBottom: 12 }}>
-            <div style={{ fontWeight: 700, marginBottom: 8 }}>Q: {q}</div>
-            <div style={{ color: "var(--muted)", fontSize: 14, lineHeight: 1.7 }}>{a}</div>
+      <div style={{ padding:"48px 32px", maxWidth:800, margin:"0 auto" }}>
+        <h2 style={{ fontFamily:"Syne", fontSize:22, fontWeight:800, marginBottom:20 }}>Frequently Asked Questions</h2>
+        {faqs.map(([q,a])=>(
+          <div key={q} style={{ background:"white", border:"1px solid var(--border)", borderRadius:12, padding:"20px", marginBottom:12 }}>
+            <div style={{ fontWeight:700, marginBottom:8 }}>Q: {q}</div>
+            <div style={{ color:"var(--muted)", fontSize:14, lineHeight:1.7 }}>{a}</div>
           </div>
         ))}
-        <div style={{ background: "var(--forest)", color: "white", borderRadius: 16, padding: "32px", textAlign: "center", marginTop: 32 }}>
-          <div style={{ fontSize: 28, marginBottom: 8 }}>🤖</div>
-          <h3 style={{ fontFamily: "Syne", fontWeight: 800, marginBottom: 8 }}>Still need help? Chat with FarmBot</h3>
-          <p style={{ opacity: 0.8, fontSize: 14, marginBottom: 16 }}>Our AI assistant is available 24/7</p>
-          <button className="btn" style={{ background: "var(--sage)", color: "white", padding: "12px 24px", borderRadius: 8, border: "none", cursor: "pointer", fontWeight: 600 }}>Open Chat →</button>
-        </div>
       </div>
       <ChatBot />
     </div>
   );
 }
 
-// ─── 404 ──────────────────────────────────────────────────────────────────────
 function NotFound() {
+  const { cartItems } = useCart();
   return (
     <div>
-      <PublicNav cartCount={0} />
-      <div className="empty-state" style={{ padding: "100px 20px" }}>
+      <PublicNav cartCount={cartItems.length} />
+      <div className="empty-state" style={{ padding:"100px 20px" }}>
         <div className="empty-icon">🌾</div>
-        <div className="empty-title" style={{ fontSize: 28 }}>Page Not Found</div>
-        <div className="empty-desc" style={{ marginBottom: 20 }}>This field is empty. Let's get you back on track.</div>
-        <Link to="/"><button className="btn btn-primary btn-lg">Go Home</button></Link>
+        <div className="empty-title" style={{ fontSize:28 }}>Page Not Found</div>
+        <Link to="/"><button className="btn btn-primary btn-lg" style={{ marginTop:16 }}>Go Home</button></Link>
       </div>
     </div>
   );
 }
 
-// ─── ROUTER ───────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// ROUTER
+// ══════════════════════════════════════════════════════════════════════════════
 function AppRouter() {
   const { path } = useRouter();
-
-  // Simple param extraction
-  const productMatch = path.match(/^\/product\/(\d+)$/);
+  const productMatch = path.match(/^\/product\/(.+)$/);
   if (productMatch) return <ProductDetailPage id={productMatch[1]} />;
 
   const routes = {
     "/": <HomePage />,
     "/login": <LoginPage />,
+    "/register": <RegisterPage />,
     "/marketplace": <MarketplacePage />,
     "/help": <HelpPage />,
     "/farmer/dashboard": <FarmerDashboard />,
+    "/farmer/products": <FarmerMyProducts />,
     "/farmer/batches": <FarmerBatches />,
+    "/farmer/add-product": <FarmerAddProduct />,
     "/farmer/create-batch": <FarmerCreateBatch />,
     "/farmer/analytics": <FarmerAnalytics />,
     "/farmer/qr": <FarmerQR />,
     "/distributor/dashboard": <DistributorDashboard />,
     "/distributor/shipments": <DistributorShipments />,
-    "/distributor/tracking": <DistributorTracking />,
+    "/distributor/new-shipment": <DistributorNewShipment />,
     "/retailer/dashboard": <RetailerDashboard />,
     "/retailer/inventory": <RetailerInventory />,
     "/retailer/listings": <RetailerListings />,
     "/retailer/orders": <RetailerOrders />,
     "/consumer/cart": <CartPage />,
     "/consumer/checkout": <CheckoutPage />,
-    "/consumer/order-tracking": <OrderTrackingPage />,
+    "/consumer/orders": <ConsumerOrders />,
     "/consumer/qr-scan": <QRScanPage />,
-
   };
-
   return routes[path] || <NotFound />;
 }
 
-// ─── APP ──────────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// APP ROOT
+// ══════════════════════════════════════════════════════════════════════════════
 export default function App() {
   const [user, setUser] = useState(null);
-  const [cartItems, setCartItems] = useState([]);
+  const [cartItems, setCartItems] = useState(() => storage.get("fcx_cart", []));
+  const [products, setProducts] = useState(() => storage.get("products", []));
 
-  const addToCart = (product) => {
+  // Persist cart
+  useEffect(() => { storage.set("fcx_cart", cartItems); }, [cartItems]);
+
+  // Restore session
+  useEffect(() => {
+    const token = localStorage.getItem("fcx_token");
+    if (token && !user) {
+      fetch("http://localhost:8080/api/auth/me", { headers:{ Authorization:`Bearer ${token}` } })
+        .then(r=>r.json()).then(j=>{ if(j.data) setUser({ name:j.data.name, role:j.data.role.toLowerCase(), email:j.data.email, id:j.data.id }); }).catch(()=>{});
+    }
+  }, []);
+
+  const refreshProducts = useCallback(() => {
+    setProducts(storage.get("products",[]));
+  }, []);
+
+  const allProducts = useMemo(() => {
+    const local = storage.get("products",[]);
+    const localIds = new Set(local.map(p=>p.id));
+    const seeds = SEED_PRODUCTS.filter(p=>!localIds.has(p.id));
+    return [...local, ...seeds];
+  }, [products]);
+
+  const addToCart = useCallback((product) => {
     setCartItems(items => {
-      const existing = items.find(i => i.id === product.id);
-      if (existing) return items.map(i => i.id === product.id ? { ...i, qty: i.qty + 1 } : i);
-      return [...items, { ...product, qty: 1 }];
+      const ex = items.find(i=>i.id===product.id);
+      if (ex) return items.map(i=>i.id===product.id?{...i,qty:i.qty+1}:i);
+      const { qty, ...rest } = product;
+      return [...items, { ...rest, qty:1 }];
     });
-  };
-  const removeFromCart = (id) => setCartItems(items => items.filter(i => i.id !== id));
-  const updateQty = (id, qty) => {
-    if (qty <= 0) removeFromCart(id);
-    else setCartItems(items => items.map(i => i.id === id ? { ...i, qty } : i));
-  };
+  }, []);
+
+  const removeFromCart = useCallback((id) => setCartItems(items=>items.filter(i=>i.id!==id)), []);
+
+  const updateQty = useCallback((id, qty) => {
+    if (qty<=0) removeFromCart(id);
+    else setCartItems(items=>items.map(i=>i.id===id?{...i,qty}:i));
+  }, [removeFromCart]);
+
+  const clearCart = useCallback(() => setCartItems([]), []);
+
+  const authValue = useMemo(()=>({ user, setUser }),[user]);
+  const cartValue = useMemo(()=>({ cartItems, addToCart, removeFromCart, updateQty, clearCart }),[cartItems]);
+  const productsValue = useMemo(()=>({ allProducts, refreshProducts }),[allProducts, refreshProducts]);
 
   return (
-    <AuthCtx.Provider value={{ user, setUser }}>
-      <CartCtx.Provider value={{ cartItems, addToCart, removeFromCart, updateQty }}>
-        <style>{CSS}</style>
-        <AppRouter />
+    <AuthCtx.Provider value={authValue}>
+      <CartCtx.Provider value={cartValue}>
+        <ProductsCtx.Provider value={productsValue}>
+          <AppRouter />
+        </ProductsCtx.Provider>
       </CartCtx.Provider>
     </AuthCtx.Provider>
   );
 }
+
+// Append nothing - just verify file is good
