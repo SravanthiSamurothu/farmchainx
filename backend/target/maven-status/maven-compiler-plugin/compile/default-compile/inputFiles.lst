@@ -35,6 +35,7 @@ C:\Users\dell\OneDrive\Desktop\FarmChainX\farmchainx\backend\src\main\java\com\f
 C:\Users\dell\OneDrive\Desktop\FarmChainX\farmchainx\backend\src\main\java\com\farmchainx\model\User.java
 C:\Users\dell\OneDrive\Desktop\FarmChainX\farmchainx\backend\src\main\java\com\farmchainx\repository\ShipmentRepository.java
 C:\Users\dell\OneDrive\Desktop\FarmChainX\farmchainx\backend\src\main\java\com\farmchainx\controller\BatchController.java
+C:\Users\dell\OneDrive\Desktop\FarmChainX\farmchainx\backend\src\main\java\com\farmchainx\config\JwtAuthFilter.java
 C:\Users\dell\OneDrive\Desktop\FarmChainX\farmchainx\backend\src\main\java\com\farmchainx\dto\OrderItemRequestDTO.java
 C:\Users\dell\OneDrive\Desktop\FarmChainX\farmchainx\backend\src\main\java\com\farmchainx\controller\UserController.java
 C:\Users\dell\OneDrive\Desktop\FarmChainX\farmchainx\backend\src\main\java\com\farmchainx\security\JwtUtil.java

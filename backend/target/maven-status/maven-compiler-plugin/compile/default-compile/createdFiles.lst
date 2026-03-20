@@ -1,6 +1,7 @@
 com\farmchainx\repository\UserRepository.class
 com\farmchainx\repository\BatchRepository.class
 com\farmchainx\model\Product$Builder.class
+com\farmchainx\security\JwtUtil.class
 com\farmchainx\model\Order$Builder.class
 com\farmchainx\config\GlobalExceptionHandler.class
 com\farmchainx\dto\OrderItemDTO.class
@@ -15,6 +16,7 @@ com\farmchainx\dto\ShipmentRequestDTO.class
 com\farmchainx\model\Shipment.class
 com\farmchainx\model\OrderItem.class
 com\farmchainx\dto\RegisterRequestDTO.class
+com\farmchainx\controller\UserController.class
 com\farmchainx\dto\OrderDTO.class
 com\farmchainx\controller\AuthController.class
 com\farmchainx\controller\BatchController.class
@@ -32,16 +34,21 @@ com\farmchainx\dto\OrderItemDTO$Builder.class
 com\farmchainx\controller\ShipmentController.class
 com\farmchainx\dto\BatchRequestDTO.class
 com\farmchainx\model\Shipment$Builder.class
+com\farmchainx\config\JwtAuthFilter.class
 com\farmchainx\dto\LoginRequestDTO.class
+com\farmchainx\dto\UserDTO.class
 com\farmchainx\model\Batch$BatchStatus.class
 com\farmchainx\controller\OrderController.class
 com\farmchainx\model\Order.class
 com\farmchainx\model\User$Role.class
 com\farmchainx\security\UserDetailsImpl.class
 com\farmchainx\model\Batch$Builder.class
+com\farmchainx\security\UserDetailsServiceImpl.class
 com\farmchainx\dto\OrderRequestDTO.class
 com\farmchainx\FarmChainXApplication.class
+com\farmchainx\config\SecurityConfig.class
 com\farmchainx\dto\AuthResponseDTO$Builder.class
 com\farmchainx\model\Shipment$ShipmentStatus.class
 com\farmchainx\model\User.class
 com\farmchainx\controller\BatchController$1.class
+com\farmchainx\security\JwtAuthFilter.class

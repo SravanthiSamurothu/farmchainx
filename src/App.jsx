@@ -355,7 +355,7 @@ function LoginPage() {
     if (!email || !password) { setError("Please enter email and password"); return; }
     setLoading(true); setError("");
     try {
-      const res = await fetch("http://farmchainx-production-3250.up.railway.app/api/auth/login", {
+      const res = await fetch("https://farmchainx-production-3250.up.railway.app/api/auth/login", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim(), password: password.trim() }), mode: "cors",
       });
@@ -420,7 +420,7 @@ function RegisterPage() {
     if (form.password.length<6) { setError("Password must be at least 6 characters"); return; }
     setLoading(true); setError("");
     try {
-      const res = await fetch("http://farmchainx-production-3250.up.railway.app/api/auth/register", {
+      const res = await fetch("https://farmchainx-production-3250.up.railway.app/api/auth/register", {
         method:"POST", headers:{"Content-Type":"application/json"},
         body:JSON.stringify({ name:form.name.trim(), email:form.email.trim(), password:form.password, role:form.role }), mode:"cors",
       });
@@ -2176,7 +2176,7 @@ export default function App() {
   useEffect(() => {
     const token = localStorage.getItem("fcx_token");
     if (token && !user) {
-      fetch("http://farmchainx-production-3250.up.railway.app/api/auth/me", { headers:{ Authorization:`Bearer ${token}` } })
+      fetch("https://farmchainx-production-3250.up.railway.app/api/auth/me", { headers:{ Authorization:`Bearer ${token}` } })
         .then(r=>r.json()).then(j=>{ if(j.data) setUser({ name:j.data.name, role:j.data.role.toLowerCase(), email:j.data.email, id:j.data.id }); }).catch(()=>{});
     }
   }, []);
