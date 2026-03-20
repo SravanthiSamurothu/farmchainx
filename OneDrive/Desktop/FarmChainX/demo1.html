@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FarmChainX · Agricultural Traceability</title>
+    <!-- Tailwind + Font Awesome + Chart.js -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        /* smooth transitions & custom scroll */
+        * { transition: background-color 0.2s, opacity 0.2s, transform 0.2s; }
+        .card-hover:hover { transform: translateY(-2px); box-shadow: 0 20px 25px -5px rgba(0,0,0,0.05), 0 10px 10px -5px rgba(0,0,0,0.01); }
+        .status-badge { @apply px-2 py-1 rounded-full text-xs font-medium; }
+        /* mobile sidebar fix */
+        @media (max-width: 768px) { .sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: 240px; transform: translateX(-100%); transition: transform 0.3s; z-index: 50; } .sidebar.open { transform: translateX(0); } .overlay { display: none; } .overlay.open { display: block; } }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans antialiased">
+
+    <!-- ========== GLOBAL TOP NAVIGATION (role switcher) ========== -->
+    <nav class="bg-white shadow-sm border-b sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-leaf text-green-600 text-2xl"></i>
+                    <span class="text-xl font-bold text-gray-800">FarmChainX</span>
+                    <span class="hidden md:inline text-sm text-gray-400">| freshness · trust · traceability</span>
+                </div>
+                <div class="flex items-center space-x-2 overflow-x-auto">
+                    <button class="role-btn px-3 py-2 text-sm font-medium rounded-lg" data-role="login">Login</button>
+                    <button class="role-btn px-3 py-2 text-sm font-medium rounded-lg" data-role="farmer">Farmer</button>
+                    <button class="role-btn px-3 py-2 text-sm font-medium rounded-lg" data-role="distributor">Distributor</button>
+                    <button class="role-btn px-3 py-2 text-sm font-medium rounded-lg" data-role="admin">Admin</button>
+                    <button class="role-btn px-3 py-2 text-sm font-medium rounded-lg" data-role="consumer-qr">QR Scan</button>
+                    <button class="role-btn px-3 py-2 text-sm font-medium rounded-lg" data-role="consumer-trace">Traceability</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- ========== MAIN CONTENT ========== -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- ************ LOGIN PAGE ************ -->
+        <section id="loginPage" class="page">
+            <div class="flex justify-center items-center min-h-[70vh]">
+                <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
+                    <div class="text-center mb-8">
+                        <div class="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-green-500 to-green-700 text-white rounded-2xl mb-4 shadow-lg">
+                            <i class="fas fa-leaf text-4xl"></i>
+                        </div>
+                        <h2 class="text-3xl font-bold text-gray-800">Welcome back</h2>
+                        <p class="text-gray-500">Sign in to your FarmChainX account</p>
+                    </div>
+                    <div class="mb-5">
+                        <label class="block text-gray-700 text-sm font-semibold mb-2">I am a</label>
+                        <select class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                            <option>Farmer</option>
+                            <option>Distributor</option>
+                            <option>Admin</option>
+                        </select>
+                    </div>
+                    <div class="mb-5">
+                        <label class="block text-gray-700 text-sm font-semibold mb-2">Email</label>
+                        <input type="email" placeholder="you@example.com" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-gray-700 text-sm font-semibold mb-2">Password</label>
+                        <input type="password" placeholder="••••••••" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                    </div>
+                    <div class="flex items-center justify-between mb-6">
+                        <label class="flex items-center"><input type="checkbox" class="mr-2"> Remember me</label>
+                        <a href="#" class="text-sm text-green-600 hover:underline">Forgot?</a>
+                    </div>
+                    <button class="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold py-2 px-4 rounded-lg shadow-md">Sign In</button>
+                    <p class="text-center text-gray-500 text-sm mt-6">New here? <a href="#" class="text-green-600 hover:underline">Contact admin</a></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ************ FARMER DASHBOARD (with sidebar) ************ -->
+        <section id="farmerDashboard" class="page hidden">
+            <div class="flex flex-col lg:flex-row gap-6">
+                <!-- Sidebar -->
+                <aside class="lg:w-64 bg-white rounded-xl shadow-md p-5 h-fit sticky top-24">
+                    <div class="flex items-center space-x-3 border-b pb-4 mb-4">
+                        <img src="https://randomuser.me/api/portraits/men/32.jpg" class="w-12 h-12 rounded-full border-2 border-green-200">
+                        <div><p class="font-semibold">John Farmer</p><p class="text-xs text-gray-500">Farmer</p></div>
+                    </div>
+                    <nav><ul class="space-y-1">
+                        <li><a href="#" class="flex items-center space-x-3 p-3 bg-green-100 text-green-700 rounded-lg"><i class="fas fa-tachometer-alt w-5"></i><span>Dashboard</span></a></li>
+                        <li><a href="#" class="flex items-center space-x-3 p-3 text-gray-700 hover:bg-green-50 rounded-lg"><i class="fas fa-seedling w-5"></i><span>Batches</span></a></li>
+                        <li><a href="#" class="flex items-center space-x-3 p-3 text-gray-700 hover:bg-green-50 rounded-lg"><i class="fas fa-truck w-5"></i><span>Supply Chain</span></a></li>
+                        <li><a href="#" class="flex items-center space-x-3 p-3 text-gray-700 hover:bg-green-50 rounded-lg"><i class="fas fa-qrcode w-5"></i><span>QR Codes</span></a></li>
+                        <li><a href="#" class="flex items-center space-x-3 p-3 text-gray-700 hover:bg-green-50 rounded-lg"><i class="fas fa-chart-line w-5"></i><span>Reports</span></a></li>
+                    </ul></nav>
+                </aside>
+
+                <!-- Main content -->
+                <main class="flex-1 bg-white rounded-xl shadow-md p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h1 class="text-2xl font-bold text-gray-800">Farmer Dashboard 🌱</h1>
+                        <button class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center"><i class="fas fa-plus mr-2"></i>Create New Batch</button>
+                    </div>
+                    <!-- KPI cards -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+                        <div class="bg-gradient-to-br from-green-50 to-green-100 p-5 rounded-xl shadow-sm card-hover"><div class="flex items-center"><div class="rounded-full bg-green-200 p-3 mr-4"><i class="fas fa-seedling text-green-700 text-xl"></i></div><div><p class="text-sm text-gray-600">Total Batches</p><p class="text-2xl font-bold">24</p></div></div></div>
+                        <div class="bg-gradient-to-br from-blue-50 to-blue-100 p-5 rounded-xl shadow-sm card-hover"><div class="flex items-center"><div class="rounded-full bg-blue-200 p-3 mr-4"><i class="fas fa-spinner text-blue-700 text-xl"></i></div><div><p class="text-sm text-gray-600">Active</p><p class="text-2xl font-bold">12</p></div></div></div>
+                        <div class="bg-gradient-to-br from-yellow-50 to-yellow-100 p-5 rounded-xl shadow-sm card-hover"><div class="flex items-center"><div class="rounded-full bg-yellow-200 p-3 mr-4"><i class="fas fa-star text-yellow-700 text-xl"></i></div><div><p class="text-sm text-gray-600">Avg Quality</p><p class="text-2xl font-bold">87%</p></div></div></div>
+                        <div class="bg-gradient-to-br from-purple-50 to-purple-100 p-5 rounded-xl shadow-sm card-hover"><div class="flex items-center"><div class="rounded-full bg-purple-200 p-3 mr-4"><i class="fas fa-exchange-alt text-purple-700 text-xl"></i></div><div><p class="text-sm text-gray-600">Pending Transfers</p><p class="text-2xl font-bold">5</p></div></div></div>
+                    </div>
+                    <!-- Recent batches & chart -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="lg:col-span-2">
+                            <h2 class="text-lg font-semibold mb-4 flex items-center"><i class="fas fa-history text-green-600 mr-2"></i>Recent Batches</h2>
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-100 text-gray-600"><tr><th class="text-left py-3 px-2">Batch ID</th><th>Crop</th><th>Status</th><th>Quality</th></tr></thead>
+                                <tbody>
+                                    <tr class="border-b"><td class="py-3 px-2 font-mono">#FC-1024</td><td>Tomato 🍅</td><td><span class="status-badge bg-green-100 text-green-700">Harvested</span></td><td><span class="status-badge bg-green-100 text-green-700">92%</span></td></tr>
+                                    <tr class="border-b"><td>#FC-1025</td><td>Corn 🌽</td><td><span class="status-badge bg-blue-100 text-blue-700">In Transit</span></td><td><span class="status-badge bg-yellow-100 text-yellow-700">78%</span></td></tr>
+                                    <tr><td>#FC-1026</td><td>Lettuce 🥬</td><td><span class="status-badge bg-purple-100 text-purple-700">At Retailer</span></td><td><span class="status-badge bg-green-100 text-green-700">95%</span></td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-xl">
+                            <h2 class="text-lg font-semibold mb-4">Quality Trend</h2>
+                            <canvas id="farmerChart" width="300" height="200"></canvas>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </section>
+
+        <!-- ************ DISTRIBUTOR DASHBOARD ************ -->
+        <section id="distributorDashboard" class="page hidden">
+            <div class="flex flex-col lg:flex-row gap-6">
+                <aside class="lg:w-64 bg-white rounded-xl shadow-md p-5 h-fit sticky top-24">
+                    <div class="flex items-center space-x-3 border-b pb-4 mb-4">
+                        <img src="https://randomuser.me/api/portraits/women/44.jpg" class="w-12 h-12 rounded-full border-2 border-green-200">
+                        <div><p class="font-semibold">Sarah Distributor</p><p class="text-xs text-gray-500">Distributor</p></div>
+                    </div>
+                    <nav><ul class="space-y-1">
+                        <li><a href="#" class="flex items-center space-x-3 p-3 bg-green-100 text-green-700 rounded-lg"><i class="fas fa-tachometer-alt w-5"></i><span>Dashboard</span></a></li>
+                        <li><a href="#" class="flex items-center space-x-3 p-3 text-gray-700 hover:bg-green-50 rounded-lg"><i class="fas fa-truck w-5"></i><span>Shipments</span></a></li>
+                        <li><a href="#" class="flex items-center space-x-3 p-3 text-gray-700 hover:bg-green-50 rounded-lg"><i class="fas fa-warehouse w-5"></i><span>Inventory</span></a></li>
+                    </ul></nav>
+                </aside>
+                <main class="flex-1 bg-white rounded-xl shadow-md p-6">
+                    <h1 class="text-2xl font-bold mb-6">Distributor Operations 🚛</h1>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+                        <div class="bg-blue-50 p-5 rounded-xl shadow-sm"><p class="text-sm text-gray-500">Received Batches</p><p class="text-3xl font-bold">8</p></div>
+                        <div class="bg-yellow-50 p-5 rounded-xl"><p class="text-sm text-gray-500">In-Transit</p><p class="text-3xl font-bold">4</p></div>
+                        <div class="bg-green-50 p-5 rounded-xl"><p class="text-sm text-gray-500">Delivered (This Month)</p><p class="text-3xl font-bold">23</p></div>
+                    </div>
+                    <h2 class="text-lg font-semibold mb-3">Shipment Tracking</h2>
+                    <table class="w-full text-sm">
+                        <thead><tr class="bg-gray-100"><th class="p-2 text-left">Batch</th><th>From</th><th>To</th><th>Status</th><th>Action</th></tr></thead>
+                        <tbody>
+                            <tr><td class="p-2">#FC-1024</td><td>John's Farm</td><td>Central Warehouse</td><td><span class="status-badge bg-blue-100 text-blue-700">In Transit</span></td><td><button class="text-green-600 hover:underline">Update</button></td></tr>
+                            <tr><td class="p-2">#FC-1025</td><td>Sarah's Farm</td><td>Cold Storage</td><td><span class="status-badge bg-yellow-100 text-yellow-700">Pending</span></td><td><button class="text-green-600 hover:underline">Update</button></td></tr>
+                            <tr><td class="p-2">#FC-1026</td><td>Green Valley</td><td>Whole Foods</td><td><span class="status-badge bg-green-100 text-green-700">Delivered</span></td><td><span class="text-gray-400">—</span></td></tr>
+                        </tbody>
+                    </table>
+                </main>
+            </div>
+        </section>
+
+        <!-- ************ ADMIN DASHBOARD ************ -->
+        <section id="adminDashboard" class="page hidden">
+            <div class="flex flex-col lg:flex-row gap-6">
+                <aside class="lg:w-64 bg-white rounded-xl shadow-md p-5 h-fit sticky top-24">
+                    <div class="flex items-center space-x-3 border-b pb-4 mb-4">
+                        <img src="https://randomuser.me/api/portraits/men/75.jpg" class="w-12 h-12 rounded-full border-2 border-green-200">
+                        <div><p class="font-semibold">Admin Alex</p><p class="text-xs text-gray-500">Administrator</p></div>
+                    </div>
+                    <nav><ul class="space-y-1">
+                        <li><a href="#" class="flex items-center space-x-3 p-3 bg-green-100 text-green-700 rounded-lg"><i class="fas fa-tachometer-alt w-5"></i><span>Dashboard</span></a></li>
+                        <li><a href="#" class="flex items-center space-x-3 p-3 text-gray-700 hover:bg-green-50 rounded-lg"><i class="fas fa-users w-5"></i><span>Users</span></a></li>
+                        <li><a href="#" class="flex items-center space-x-3 p-3 text-gray-700 hover:bg-green-50 rounded-lg"><i class="fas fa-cog w-5"></i><span>Settings</span></a></li>
+                    </ul></nav>
+                </aside>
+                <main class="flex-1 bg-white rounded-xl shadow-md p-6">
+                    <h1 class="text-2xl font-bold mb-6">Admin Overview</h1>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+                        <div class="bg-green-50 p-5 rounded-xl shadow-sm"><p class="text-sm text-gray-500">Total Users</p><p class="text-3xl font-bold">142</p></div>
+                        <div class="bg-blue-50 p-5 rounded-xl"><p class="text-sm text-gray-500">Total Batches</p><p class="text-3xl font-bold">1,024</p></div>
+                        <div class="bg-purple-50 p-5 rounded-xl"><p class="text-sm text-gray-500">Active Sessions</p><p class="text-3xl font-bold">12</p></div>
+                    </div>
+                    <h2 class="text-lg font-semibold mb-3">User Management</h2>
+                    <div class="mb-3 flex gap-2">
+                        <input type="text" placeholder="Search users..." class="border rounded-lg px-4 py-2 flex-1">
+                        <button class="bg-green-600 text-white px-4 py-2 rounded-lg"><i class="fas fa-plus mr-2"></i>Add</button>
+                    </div>
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-100"><tr><th class="p-2 text-left">Name</th><th>Email</th><th>Role</th><th>Status</th></tr></thead>
+                        <tbody>
+                            <tr><td class="p-2">John Farmer</td><td>john@farm.com</td><td>Farmer</td><td><span class="status-badge bg-green-100 text-green-700">Active</span></td></tr>
+                            <tr><td>Sarah Distributor</td><td>sarah@log.com</td><td>Distributor</td><td><span class="status-badge bg-green-100 text-green-700">Active</span></td></tr>
+                            <tr><td>Mike Retailer</td><td>mike@shop.com</td><td>Retailer</td><td><span class="status-badge bg-gray-100 text-gray-700">Inactive</span></td></tr>
+                        </tbody>
+                    </table>
+                </main>
+            </div>
+        </section>
+
+        <!-- ************ CONSUMER: QR SCAN PAGE ************ -->
+        <section id="consumerQRPage" class="page hidden">
+            <div class="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl p-8 text-center">
+                <i class="fas fa-qrcode text-green-600 text-6xl mb-4"></i>
+                <h2 class="text-2xl font-bold mb-2">Scan Product QR Code</h2>
+                <p class="text-gray-500 mb-6">Use your camera or upload a photo to verify product origin</p>
+                <div class="bg-gray-100 p-12 rounded-xl border-2 border-dashed border-green-300 mb-6">
+                    <i class="fas fa-camera text-4xl text-gray-400"></i>
+                    <p class="text-gray-500 mt-2">Camera preview placeholder</p>
+                </div>
+                <button class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg text-lg font-semibold">📷 Open Camera</button>
+                <p class="mt-4 text-sm text-gray-400">or <a href="#" class="text-green-600 hover:underline" id="gotoTraceExample">view sample product</a></p>
+            </div>
+        </section>
+
+        <!-- ************ CONSUMER: PRODUCT TRACEABILITY PAGE ************ -->
+        <section id="consumerTracePage" class="page hidden">
+            <div class="max-w-3xl mx-auto bg-white rounded-2xl shadow-xl p-8">
+                <div class="text-center mb-6">
+                    <i class="fas fa-leaf text-green-600 text-5xl"></i>
+                    <h1 class="text-3xl font-bold mt-2">FarmChainX</h1>
+                    <p class="text-gray-500">Verified Product Traceability</p>
+                </div>
+                <div class="border-b pb-4 mb-4 flex justify-between items-center">
+                    <div><span class="text-sm text-gray-500">Batch #FC-1024</span></div>
+                    <span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-semibold">Premium Quality</span>
+                </div>
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <h2 class="text-2xl font-semibold mb-2">Organic Roma Tomatoes</h2>
+                        <p class="text-gray-600 mb-4">Harvested fresh from Green Valley Farm, California.</p>
+                        <div class="space-y-2 text-sm">
+                            <div><i class="fas fa-calendar-alt text-green-600 w-6 inline-block"></i> Harvested: Oct 8, 2025</div>
+                            <div><i class="fas fa-map-marker-alt text-green-600 w-6 inline-block"></i> Green Valley, CA</div>
+                            <div class="flex items-center"><i class="fas fa-user-circle text-green-600 w-6"></i> Farmer: John Farmer (3rd gen)</div>
+                        </div>
+                    </div>
+                    <div class="bg-green-50 p-5 rounded-lg text-center">
+                        <i class="fas fa-robot text-green-600 text-3xl mb-2"></i>
+                        <p class="text-sm text-gray-600">AI Quality Score</p>
+                        <p class="text-4xl font-bold text-green-700">92%</p>
+                        <p class="text-sm mt-1">Premium · Excellent ripeness</p>
+                    </div>
+                </div>
+                <div class="mt-8">
+                    <h3 class="font-semibold mb-4 flex items-center"><i class="fas fa-road text-green-600 mr-2"></i>Supply Chain Journey</h3>
+                    <div class="flex flex-wrap justify-between items-center">
+                        <div class="text-center"><div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto"><i class="fas fa-tractor text-green-600"></i></div><p class="text-xs mt-1 font-semibold">Farm</p><p class="text-xs">Oct 8</p></div>
+                        <i class="fas fa-arrow-right text-green-400"></i>
+                        <div class="text-center"><div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto"><i class="fas fa-industry text-green-600"></i></div><p class="text-xs mt-1 font-semibold">Processing</p><p class="text-xs">Oct 9</p></div>
+                        <i class="fas fa-arrow-right text-green-400"></i>
+                        <div class="text-center"><div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto"><i class="fas fa-warehouse text-green-600"></i></div><p class="text-xs mt-1 font-semibold">Storage</p><p class="text-xs">Oct 10</p></div>
+                        <i class="fas fa-arrow-right text-green-400"></i>
+                        <div class="text-center"><div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto"><i class="fas fa-truck text-green-600"></i></div><p class="text-xs mt-1 font-semibold">Distributor</p><p class="text-xs">Oct 11</p></div>
+                        <i class="fas fa-arrow-right text-green-400"></i>
+                        <div class="text-center"><div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto"><i class="fas fa-store text-green-600"></i></div><p class="text-xs mt-1 font-semibold">Retailer</p><p class="text-xs">Oct 12</p></div>
+                    </div>
+                </div>
+                <div class="mt-6 text-center text-gray-400 text-sm border-t pt-4">✓ Blockchain-verified · FarmChainX</div>
+            </div>
+        </section>
+
+    </div>
+
+    <script>
+        (function() {
+            // Get all pages
+            const pages = {
+                login: document.getElementById('loginPage'),
+                farmer: document.getElementById('farmerDashboard'),
+                distributor: document.getElementById('distributorDashboard'),
+                admin: document.getElementById('adminDashboard'),
+                'consumer-qr': document.getElementById('consumerQRPage'),
+                'consumer-trace': document.getElementById('consumerTracePage')
+            };
+
+            // Role buttons
+            const roleBtns = document.querySelectorAll('.role-btn');
+            function showPage(role) {
+                Object.values(pages).forEach(p => p.classList.add('hidden'));
+                if (pages[role]) pages[role].classList.remove('hidden');
+                // update active button style
+                roleBtns.forEach(btn => {
+                    btn.classList.remove('bg-green-600', 'text-white');
+                    btn.classList.add('text-gray-700', 'hover:bg-green-100');
+                    if (btn.dataset.role === role) {
+                        btn.classList.add('bg-green-600', 'text-white');
+                        btn.classList.remove('hover:bg-green-100');
+                    }
+                });
+            }
+
+            roleBtns.forEach(btn => {
+                btn.addEventListener('click', () => showPage(btn.dataset.role));
+            });
+
+            // Default show login
+            showPage('login');
+
+            // Link from QR page to trace example
+            document.getElementById('gotoTraceExample').addEventListener('click', (e) => {
+                e.preventDefault();
+                showPage('consumer-trace');
+            });
+
+            // Initialize chart for farmer dashboard (only if canvas exists)
+            setTimeout(() => {
+                const ctx = document.getElementById('farmerChart')?.getContext('2d');
+                if (ctx) {
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: ['May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct'],
+                            datasets: [{
+                                label: 'Quality %',
+                                data: [82, 85, 88, 84, 90, 87],
+                                borderColor: '#2E7D32',
+                                backgroundColor: 'rgba(46,125,50,0.1)',
+                                tension: 0.3,
+                                fill: true
+                            }]
+                        },
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+                    });
+                }
+            }, 200);
+        })();
+    </script>
+</body>
+</html>
