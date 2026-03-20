@@ -449,10 +449,12 @@ function RegisterPage() {
             <h2 style={{ fontFamily:"Syne", fontSize:22, fontWeight:800 }}>Create Account</h2>
           </div>
           {error && <div style={{ background:"#fee2e2", color:"#991b1b", padding:"10px 14px", borderRadius:8, marginBottom:16, fontSize:13 }}>⚠️ {error}</div>}
+          <form onSubmit={handleRegister}>
           <div className="form-group"><label className="form-label">Full Name</label><input className="form-input" placeholder="Your full name" value={form.name} onChange={e=>set("name",e.target.value)} /></div>
           <div className="form-group"><label className="form-label">Email</label><input className="form-input" type="email" placeholder="Your email" value={form.email} onChange={e=>set("email",e.target.value)} /></div>
           <div className="form-group"><label className="form-label">Password</label><input className="form-input" type="password" placeholder="Min 6 characters" value={form.password} onChange={e=>set("password",e.target.value)} /></div>
           <div className="form-group"><label className="form-label">Confirm Password</label><input className="form-input" type="password" placeholder="Repeat password" value={form.confirmPassword} onChange={e=>set("confirmPassword",e.target.value)} /></div>
+          
           <div className="form-group">
             <label className="form-label">I am a...</label>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginTop:6 }}>
@@ -464,9 +466,10 @@ function RegisterPage() {
               ))}
             </div>
           </div>
-          <button className="btn btn-primary w-full btn-lg" style={{ borderRadius:10 }} onClick={handleRegister} disabled={loading}>
+          <button type="submit" className="btn btn-primary w-full btn-lg" style={{ borderRadius:10 }} disabled={loading}>
             {loading?"Creating...":"Create Account"}
           </button>
+          </form>
           <div style={{ textAlign:"center", marginTop:14, fontSize:14, color:"var(--muted)" }}>
             Already have an account? <Link to="/login" style={{ color:"var(--sage)", fontWeight:700 }}>Sign in</Link>
           </div>
