@@ -5,13 +5,13 @@ import com.farmchainx.repository.UserRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Configuration
 public class DataSeeder {
 
     @Bean
-    CommandLineRunner seedData(UserRepository repo, BCryptPasswordEncoder encoder) {
+    CommandLineRunner seedData(UserRepository repo, PasswordEncoder encoder) {
         return args -> {
             if (repo.count() == 0) {
                 String hashed = encoder.encode("demo1234");
