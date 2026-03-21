@@ -1717,59 +1717,105 @@ function RetailerInventory() {
 }
 
 function RetailerListings() {
-  const { allProducts, refreshProducts } = useProducts();
-  const [editModal, setEditModal] = useState(null);
-  const [editForm, setEditForm] = useState({});
-
-  const openEdit = (p) => { setEditModal(p); setEditForm({ name:p.name, price:p.price, desc:p.desc||"" }); };
-
-  const saveEdit = () => {
-    const saved = storage.get("products",[]);
-    const updated = saved.map(p=>p.id===editModal.id?{...p,...editForm,price:Number(editForm.price)}:p);
-    storage.set("products",updated);
-    refreshProducts();
-    setEditModal(null);
+  const [editProduct, setEditProduct] = useState(null);
+  const [form, setForm] = useState({});
+  const [saved, setSaved] = useState(false);
+  const [products, setProducts] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("fcx_products")) || PRODUCTS; } catch { return PRODUCTS; }
+  });
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const openEdit = (p) => {
+    setEditProduct(p); setSaved(false);
+    setForm({ name: p.name || "", price: p.price || "", category: p.category || "Grains", description: p.description || "", stock: p.stock || "", origin: p.origin || "", certified: p.certified || false });
   };
-
-  const deleteProduct = (id) => {
-    if (!confirm("Delete this product?")) return;
-    const saved = storage.get("products",[]);
-    storage.set("products", saved.filter(p=>p.id!==id));
-    refreshProducts();
+  const handleSave = () => {
+    const updated = products.map(p => p.id === editProduct.id ? { ...p, name: form.name, price: Number(form.price), category: form.category, description: form.description, stock: Number(form.stock), origin: form.origin, certified: form.certified } : p);
+    setProducts(updated);
+    localStorage.setItem("fcx_products", JSON.stringify(updated));
+    setSaved(true);
+    setTimeout(() => setEditProduct(null), 1000);
   };
-
+  const handleDelete = (id) => {
+    if (!window.confirm("Remove this product?")) return;
+    const updated = products.filter(p => p.id !== id);
+    setProducts(updated);
+    localStorage.setItem("fcx_products", JSON.stringify(updated));
+  };
   return (
     <RetailLayout title="Product Listings">
       <div className="page-header flex items-center justify-between">
-        <div><div className="page-title">Product Listings</div><div className="page-sub">Manage marketplace products</div></div>
+        <div><div className="page-title">Product Listings</div><div className="page-sub">{products.length} products</div></div>
       </div>
-      <div className="products-grid">
-        {allProducts.map(p=>(
-          <div key={p.id} className="product-card" style={{ cursor:"default" }}>
-            <div className="product-img"><ProductImage product={p} /></div>
-            <div className="product-info">
-              <div className="product-name">{p.name}</div>
-              <div className="product-farmer">{p.category} · {p.origin}</div>
-              <div className="product-meta">
-                <div className="product-price">₹{p.price}<span style={{ fontSize:12, fontWeight:400 }}>/{p.unit}</span></div>
-                <span className="pill pill-green" style={{ fontSize:11 }}>Listed ✓</span>
+      {products.length === 0 ? (
+        <div className="empty-state"><div className="empty-icon">🏷️</div><div className="empty-title">No products listed</div></div>
+      ) : (
+        <div className="products-grid">
+          {products.map(p => (
+            <div key={p.id} className="card" style={{ overflow: "hidden" }}>
+              <div style={{ height: 140, background: "var(--primary-light)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", position: "relative" }}>
+                {p.image ? <img src={p.image} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 52 }}>{p.icon || "🌾"}</span>}
+                {p.certified && <div style={{ position: "absolute", top: 8, left: 8, background: "var(--primary-dark)", color: "#fff", fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 20 }}>🌿 Certified</div>}
               </div>
-              <div className="flex gap-2 mt-4">
-                <button className="btn btn-secondary btn-sm" onClick={()=>openEdit(p)}>✏️ Edit</button>
-                {p.addedByFarmer && <button className="btn btn-danger btn-sm" onClick={()=>deleteProduct(p.id)}>🗑️ Delete</button>}
+              <div style={{ padding: 14 }}>
+                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 3 }}>{p.name}</div>
+                <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>{p.category} · {p.origin || "India"}</div>
+                {p.description && (
+                  <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 6, lineHeight: 1.5, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+                    {p.description}
+                  </div>
+                )}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <div style={{ fontWeight: 800, color: "var(--primary-dark)", fontSize: 16 }}>₹{p.price}<span style={{ fontSize: 11, fontWeight: 400, color: "var(--muted)" }}>/{p.unit}</span></div>
+                  <span style={{ fontSize: 11, color: "var(--muted)" }}>Stock: {p.stock} {p.unit}</span>
+                </div>
+                <div style={{ display: "flex", gap: 7 }}>
+                  <button className="btn btn-secondary btn-sm" style={{ flex: 1 }} onClick={() => openEdit(p)}>✏️ Edit</button>
+                  <button className="btn btn-danger btn-sm" onClick={() => handleDelete(p.id)}>🗑️</button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
-      {editModal && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000 }}>
-          <div style={{ background:"white", borderRadius:16, padding:32, width:440, boxShadow:"0 20px 60px rgba(0,0,0,0.2)" }}>
-            <h3 style={{ fontFamily:"Syne", marginBottom:16 }}>Edit: {editModal.name}</h3>
-            <div className="form-group"><label className="form-label">Name</label><input className="form-input" value={editForm.name} onChange={e=>setEditForm(f=>({...f,name:e.target.value}))} /></div>
-            <div className="form-group"><label className="form-label">Price (₹)</label><input className="form-input" type="number" value={editForm.price} onChange={e=>setEditForm(f=>({...f,price:e.target.value}))} /></div>
-            <div className="form-group"><label className="form-label">Description</label><textarea className="form-input" value={editForm.desc} onChange={e=>setEditForm(f=>({...f,desc:e.target.value}))} style={{ minHeight:80 }} /></div>
-            <div className="flex gap-2"><button className="btn btn-primary" onClick={saveEdit}>Save Changes</button><button className="btn btn-secondary" onClick={()=>setEditModal(null)}>Cancel</button></div>
+          ))}
+        </div>
+      )}
+      {editProduct && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={e => e.target === e.currentTarget && setEditProduct(null)}>
+          <div style={{ background: "#fff", borderRadius: 14, padding: 28, width: "100%", maxWidth: 520, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+              <div style={{ fontSize: 17, fontWeight: 800 }}>✏️ Edit Product</div>
+              <button onClick={() => setEditProduct(null)} style={{ width: 30, height: 30, borderRadius: 6, border: "none", background: "var(--bg)", cursor: "pointer", fontSize: 16 }}>✕</button>
+            </div>
+            {saved && <div className="alert alert-success">✅ Saved successfully!</div>}
+            {editProduct.image && (
+              <div style={{ marginBottom: 16, borderRadius: 10, overflow: "hidden", height: 120 }}>
+                <img src={editProduct.image} alt={editProduct.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              </div>
+            )}
+            <div className="grid-2">
+              <div className="form-group"><label className="form-label">Product Name</label><input className="form-input" value={form.name} onChange={e => set("name", e.target.value)} /></div>
+              <div className="form-group"><label className="form-label">Category</label>
+                <select className="form-input form-select" value={form.category} onChange={e => set("category", e.target.value)}>
+                  {["Grains","Fruits","Vegetables","Spices","Dairy","Herbs"].map(c => <option key={c}>{c}</option>)}
+                </select>
+              </div>
+              <div className="form-group"><label className="form-label">Price (₹)</label><input className="form-input" type="number" value={form.price} onChange={e => set("price", e.target.value)} /></div>
+              <div className="form-group"><label className="form-label">Stock</label><input className="form-input" type="number" value={form.stock} onChange={e => set("stock", e.target.value)} /></div>
+            </div>
+            <div className="form-group"><label className="form-label">Origin / Location</label><input className="form-input" placeholder="e.g. Punjab" value={form.origin} onChange={e => set("origin", e.target.value)} /></div>
+            <div className="form-group">
+              <label className="form-label">Description</label>
+              <textarea className="form-input" placeholder="Describe the product — quality, taste, uses, certifications..." value={form.description} onChange={e => set("description", e.target.value)} style={{ minHeight: 110 }} />
+              <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>Visible to consumers on marketplace and product detail page.</div>
+            </div>
+            <div className="form-group">
+              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                <input type="checkbox" checked={form.certified} onChange={e => set("certified", e.target.checked)} />
+                <span className="form-label" style={{ margin: 0 }}>🌿 FSSAI Organic Certified</span>
+              </label>
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleSave}>Save Changes</button>
+              <button className="btn btn-secondary" onClick={() => setEditProduct(null)}>Cancel</button>
+            </div>
           </div>
         </div>
       )}
