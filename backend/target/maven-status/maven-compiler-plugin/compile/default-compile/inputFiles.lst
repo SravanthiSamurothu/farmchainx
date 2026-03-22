@@ -20,6 +20,7 @@ C:\Users\dell\OneDrive\Desktop\FarmChainX\farmchainx\backend\src\main\java\com\f
 C:\Users\dell\OneDrive\Desktop\FarmChainX\farmchainx\backend\src\main\java\com\farmchainx\model\Order.java
 C:\Users\dell\OneDrive\Desktop\FarmChainX\farmchainx\backend\src\main\java\com\farmchainx\dto\RegisterRequestDTO.java
 C:\Users\dell\OneDrive\Desktop\FarmChainX\farmchainx\backend\src\main\java\com\farmchainx\FarmChainXApplication.java
+C:\Users\dell\OneDrive\Desktop\FarmChainX\farmchainx\backend\src\main\java\com\farmchainx\config\GlobalCorsConfig.java
 C:\Users\dell\OneDrive\Desktop\FarmChainX\farmchainx\backend\src\main\java\com\farmchainx\dto\UserDTO.java
 C:\Users\dell\OneDrive\Desktop\FarmChainX\farmchainx\backend\src\main\java\com\farmchainx\repository\BatchRepository.java
 C:\Users\dell\OneDrive\Desktop\FarmChainX\farmchainx\backend\src\main\java\com\farmchainx\config\SecurityConfig.java
