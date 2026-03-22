@@ -349,56 +349,68 @@ function LoginPage() {
   const [error, setError] = useState("");
   const { navigate } = useRouter();
 
-  const ROLE_DEST = { FARMER:"/farmer/dashboard", DISTRIBUTOR:"/distributor/dashboard", RETAILER:"/retailer/dashboard", CONSUMER:"/consumer/dashboard" };
+  const ROLE_DEST = { FARMER:"/farmer/dashboard", DISTRIBUTOR:"/distributor/dashboard", RETAILER:"/retailer/dashboard", CONSUMER:"/marketplace" };
+  const BASE_URL = "https://farmchainx-production-3250.up.railway.app";
 
   const handleLogin = async () => {
-  if (!email || !password) { setError("Please enter email and password"); return; }
-  setLoading(true); setError("");
-
-  const DEMO_USERS = {
-    "farmer@demo.com":      { name:"Ravi Kumar",   role:"FARMER",      id:1 },
-    "distributor@demo.com": { name:"Priya Sharma", role:"DISTRIBUTOR", id:2 },
-    "retailer@demo.com":    { name:"Amit Patel",   role:"RETAILER",    id:3 },
-    "consumer@demo.com":    { name:"Meera Nair",   role:"CONSUMER",    id:4 },
+    if (!email || !password) { setError("Please enter email and password"); return; }
+    setLoading(true); setError("");
+    try {
+      const res = await fetch(`${BASE_URL}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), password: password.trim() }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        setError(json.message || "Invalid email or password");
+        setLoading(false); return;
+      }
+      const data = json.data;
+      localStorage.setItem("fcx_token", data.token);
+      localStorage.setItem("role", data.role.toLowerCase());
+      localStorage.setItem("farmerName", data.name);
+      setUser({ name: data.name, role: data.role.toLowerCase(), email: data.email, id: data.id });
+      navigate(ROLE_DEST[data.role] || "/");
+    } catch (e) {
+      setError("Cannot connect to server. Please try again.");
+    }
+    setLoading(false);
   };
-
-  const found = DEMO_USERS[email.trim().toLowerCase()];
-  if (found && password === "demo1234") {
-    const token = "demo-token-" + found.role.toLowerCase();
-    localStorage.setItem("fcx_token", token);
-    localStorage.setItem("role", found.role.toLowerCase());
-    localStorage.setItem("farmerName", found.name);
-    setUser({ name:found.name, role:found.role.toLowerCase(), email:email, id:found.id });
-    navigate(ROLE_DEST[found.role]);
-  } else {
-    setError("Invalid email or password.");
-  }
-  setLoading(false);
-};
 
   return (
     <div style={{ minHeight:"100vh", display:"flex", background:"linear-gradient(135deg, var(--forest) 0%, var(--pine) 60%, var(--sage) 100%)" }}>
       <div style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"center", padding:"60px", color:"white" }} className="hide-mobile">
-        <h1 style={{ fontFamily:"Syne", fontSize:52, fontWeight:800, marginBottom:20, lineHeight:1.05, letterSpacing:"-1px" }}>FarmChainX</h1>
-  <p style={{ fontSize:18, opacity:0.75, maxWidth:380, lineHeight:1.8, fontWeight:400 }}>
-    A transparent agricultural supply chain platform connecting farmers, distributors, retailers and consumers.
-  </p>
+        <h1 style={{ fontFamily:"Syne", fontSize:52, fontWeight:800, marginBottom:20, lineHeight:1.05 }}>FarmChainX</h1>
+        <p style={{ fontSize:18, opacity:0.75, maxWidth:380, lineHeight:1.8 }}>
+          A transparent agricultural supply chain platform connecting farmers, distributors, retailers and consumers.
+        </p>
       </div>
       <div style={{ width:460, display:"flex", alignItems:"center", justifyContent:"center", padding:32, background:"rgba(255,255,255,0.07)", backdropFilter:"blur(10px)" }}>
         <div style={{ background:"white", borderRadius:20, padding:40, width:"100%", maxWidth:400, boxShadow:"0 20px 60px rgba(0,0,0,0.25)" }}>
           <div style={{ textAlign:"center", marginBottom:28 }}>
-            
             <h2 style={{ fontFamily:"Syne", fontSize:24, fontWeight:800, marginBottom:6 }}>Welcome Back</h2>
             <p style={{ color:"var(--muted)", fontSize:14 }}>Sign in to your FarmChainX account</p>
           </div>
           {error && <div style={{ background:"#fee2e2", color:"#991b1b", padding:"12px 16px", borderRadius:10, marginBottom:20, fontSize:13 }}>⚠️ {error}</div>}
-          <div className="form-group"><label className="form-label">Email Address</label>
-            <input className="form-input" type="email" placeholder="Enter your email" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleLogin()} /></div>
-          <div className="form-group"><label className="form-label">Password</label>
-            <input className="form-input" type="password" placeholder="Enter your password" value={password} onChange={e=>setPassword(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleLogin()} /></div>
+          <div className="form-group">
+            <label className="form-label">Email Address</label>
+            <input className="form-input" type="email" placeholder="Enter your email" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key === "Enter" && handleLogin()} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Password</label>
+            <input className="form-input" type="password" placeholder="Enter your password" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === "Enter" && handleLogin()} />
+          </div>
           <button className="btn btn-primary w-full btn-lg" style={{ marginTop:8, borderRadius:10 }} onClick={handleLogin} disabled={loading}>
             {loading ? "Signing in..." : "Sign In"}
           </button>
+          <div style={{ marginTop:16, padding:12, background:"var(--bg)", borderRadius:8, fontSize:12, color:"var(--muted)" }}>
+            <div style={{ fontWeight:700, marginBottom:6 }}>Demo accounts:</div>
+            <div>🧑‍🌾 farmer@demo.com / demo1234</div>
+            <div>🚛 distributor@demo.com / demo1234</div>
+            <div>🏪 retailer@demo.com / demo1234</div>
+            <div>👤 consumer@demo.com / demo1234</div>
+          </div>
           <div style={{ textAlign:"center", marginTop:16, fontSize:14, color:"var(--muted)" }}>
             Don't have an account? <Link to="/register" style={{ color:"var(--sage)", fontWeight:700 }}>Register here</Link>
           </div>
@@ -414,58 +426,70 @@ function RegisterPage() {
   const [form, setForm] = useState({ name:"", email:"", password:"", confirmPassword:"", role:"CONSUMER" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const set = (k,v) => setForm(f=>({...f,[k]:v}));
-  const ROLE_DEST = { FARMER:"/farmer/dashboard", DISTRIBUTOR:"/distributor/dashboard", RETAILER:"/retailer/dashboard", CONSUMER:"/marketplace" };
-  const roles = [{ value:"FARMER", label:"🧑‍🌾 Farmer" },{ value:"DISTRIBUTOR", label:"🚛 Distributor" },{ value:"RETAILER", label:"🏪 Retailer" },{ value:"CONSUMER", label:"👤 Consumer" }];
-  
-  const BASE_URL = "https://farmchainx-production-3250.up.railway.app";
-  const handleRegister = async () => {
-  if (!form.name||!form.email||!form.password||!form.role) { setError("Please fill all fields"); return; }
-  if (form.password !== form.confirmPassword) { setError("Passwords do not match"); return; }
-  if (form.password.length < 6) { setError("Password must be at least 6 characters"); return; }
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  const token = "demo-token-" + form.role.toLowerCase();
-  localStorage.setItem("fcx_token", token);
-  localStorage.setItem("role", form.role.toLowerCase());
-  localStorage.setItem("farmerName", form.name);
-  setUser({ name:form.name, role:form.role.toLowerCase(), email:form.email, id:Date.now() });
-  navigate(ROLE_DEST[form.role]);
-};
+  const ROLE_DEST = { FARMER:"/farmer/dashboard", DISTRIBUTOR:"/distributor/dashboard", RETAILER:"/retailer/dashboard", CONSUMER:"/marketplace" };
+  const BASE_URL = "https://farmchainx-production-3250.up.railway.app";
+  const roles = [{ value:"FARMER", label:"🧑‍🌾 Farmer" }, { value:"DISTRIBUTOR", label:"🚛 Distributor" }, { value:"RETAILER", label:"🏪 Retailer" }, { value:"CONSUMER", label:"👤 Consumer" }];
+
+  const handleRegister = async () => {
+    if (!form.name || !form.email || !form.password || !form.role) { setError("Please fill all fields"); return; }
+    if (form.password !== form.confirmPassword) { setError("Passwords do not match"); return; }
+    if (form.password.length < 6) { setError("Password must be at least 6 characters"); return; }
+    setLoading(true); setError("");
+    try {
+      const res = await fetch(`${BASE_URL}/api/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: form.name.trim(), email: form.email.trim(), password: form.password, role: form.role }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        setError(json.message || "Registration failed");
+        setLoading(false); return;
+      }
+      const data = json.data;
+      localStorage.setItem("fcx_token", data.token);
+      localStorage.setItem("role", data.role.toLowerCase());
+      localStorage.setItem("farmerName", data.name);
+      setUser({ name: data.name, role: data.role.toLowerCase(), email: data.email, id: data.id });
+      navigate(ROLE_DEST[data.role] || "/");
+    } catch (e) {
+      setError("Cannot connect to server. Please try again.");
+    }
+    setLoading(false);
+  };
+
   return (
     <div style={{ minHeight:"100vh", display:"flex", background:"linear-gradient(135deg, var(--forest) 0%, var(--pine) 60%, var(--sage) 100%)" }}>
       <div style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"center", padding:"60px", color:"white" }} className="hide-mobile">
-        
         <h1 style={{ fontFamily:"Syne", fontSize:42, fontWeight:800, marginBottom:16 }}>Join FarmChainX</h1>
         <p style={{ fontSize:18, opacity:0.85, maxWidth:420, lineHeight:1.7, marginBottom:32 }}>Be part of India's most transparent agricultural supply chain.</p>
       </div>
       <div style={{ width:480, display:"flex", alignItems:"center", justifyContent:"center", padding:32, background:"rgba(255,255,255,0.07)", backdropFilter:"blur(10px)" }}>
         <div style={{ background:"white", borderRadius:20, padding:40, width:"100%", maxWidth:420, boxShadow:"0 20px 60px rgba(0,0,0,0.25)" }}>
           <div style={{ textAlign:"center", marginBottom:24 }}>
-            
             <h2 style={{ fontFamily:"Syne", fontSize:22, fontWeight:800 }}>Create Account</h2>
           </div>
           {error && <div style={{ background:"#fee2e2", color:"#991b1b", padding:"10px 14px", borderRadius:8, marginBottom:16, fontSize:13 }}>⚠️ {error}</div>}
-          <form onSubmit={handleRegister}>
-          <div className="form-group"><label className="form-label">Full Name</label><input className="form-input" placeholder="Your full name" value={form.name} onChange={e=>set("name",e.target.value)} /></div>
-          <div className="form-group"><label className="form-label">Email</label><input className="form-input" type="email" placeholder="Your email" value={form.email} onChange={e=>set("email",e.target.value)} /></div>
-          <div className="form-group"><label className="form-label">Password</label><input className="form-input" type="password" placeholder="Min 6 characters" value={form.password} onChange={e=>set("password",e.target.value)} /></div>
-          <div className="form-group"><label className="form-label">Confirm Password</label><input className="form-input" type="password" placeholder="Repeat password" value={form.confirmPassword} onChange={e=>set("confirmPassword",e.target.value)} /></div>
-          
+          <div className="form-group"><label className="form-label">Full Name</label><input className="form-input" placeholder="Your full name" value={form.name} onChange={e => set("name", e.target.value)} /></div>
+          <div className="form-group"><label className="form-label">Email</label><input className="form-input" type="email" placeholder="Your email" value={form.email} onChange={e => set("email", e.target.value)} /></div>
+          <div className="form-group"><label className="form-label">Password</label><input className="form-input" type="password" placeholder="Min 6 characters" value={form.password} onChange={e => set("password", e.target.value)} /></div>
+          <div className="form-group"><label className="form-label">Confirm Password</label><input className="form-input" type="password" placeholder="Repeat password" value={form.confirmPassword} onChange={e => set("confirmPassword", e.target.value)} /></div>
           <div className="form-group">
             <label className="form-label">I am a...</label>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginTop:6 }}>
-              {roles.map(r=>(
-                <button key={r.value} onClick={()=>set("role",r.value)}
-                  style={{ padding:"10px", borderRadius:10, border:`2px solid ${form.role===r.value?"var(--sage)":"var(--border)"}`, background:form.role===r.value?"#f0faf2":"white", cursor:"pointer", fontSize:13, fontWeight:600, color:form.role===r.value?"var(--pine)":"var(--ink)" }}>
+              {roles.map(r => (
+                <button key={r.value} onClick={() => set("role", r.value)}
+                  style={{ padding:"10px", borderRadius:10, border:`2px solid ${form.role === r.value ? "var(--sage)" : "var(--border)"}`, background: form.role === r.value ? "#f0faf2" : "white", cursor:"pointer", fontSize:13, fontWeight:600, color: form.role === r.value ? "var(--pine)" : "var(--ink)" }}>
                   {r.label}
                 </button>
               ))}
             </div>
           </div>
-          <button type="submit" className="btn btn-primary w-full btn-lg" style={{ borderRadius:10 }} disabled={loading}>
-            {loading?"Creating...":"Create Account"}
+          <button className="btn btn-primary w-full btn-lg" style={{ borderRadius:10 }} onClick={handleRegister} disabled={loading}>
+            {loading ? "Creating..." : "Create Account"}
           </button>
-          </form>
           <div style={{ textAlign:"center", marginTop:14, fontSize:14, color:"var(--muted)" }}>
             Already have an account? <Link to="/login" style={{ color:"var(--sage)", fontWeight:700 }}>Sign in</Link>
           </div>
