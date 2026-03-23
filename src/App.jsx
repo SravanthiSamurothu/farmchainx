@@ -341,6 +341,12 @@ function HomePage() {
 // ══════════════════════════════════════════════════════════════════════════════
 // LOGIN / REGISTER
 // ══════════════════════════════════════════════════════════════════════════════
+// Role destination mapping moved to module scope for shared access
+const ROLE_DEST = { FARMER:"/farmer/dashboard", DISTRIBUTOR:"/distributor/dashboard", RETAILER:"/retailer/dashboard", CONSUMER:"/marketplace" };
+
+/**
+ * LoginPage component handles user authentication for demo and registered users.
+ */
 function LoginPage() {
   const { setUser } = useAuth();
   const [email, setEmail] = useState("");
@@ -349,77 +355,70 @@ function LoginPage() {
   const [error, setError] = useState("");
   const { navigate } = useRouter();
 
-  const ROLE_DEST = { FARMER:"/farmer/dashboard", DISTRIBUTOR:"/distributor/dashboard", RETAILER:"/retailer/dashboard", CONSUMER:"/marketplace" };
-  const BASE_URL = "https://farmchainx-production-3250.up.railway.app";
-
-  const handleLogin = async () => {
+  const handleLogin = () => {
     if (!email || !password) { setError("Please enter email and password"); return; }
     setLoading(true); setError("");
-    try {
-      const res = await fetch(`${BASE_URL}/api/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), password: password.trim() }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        setError(json.message || "Invalid email or password");
-        setLoading(false); return;
-      }
-      const data = json.data;
-      localStorage.setItem("fcx_token", data.token);
-      localStorage.setItem("role", data.role.toLowerCase());
-      localStorage.setItem("farmerName", data.name);
-      setUser({ name: data.name, role: data.role.toLowerCase(), email: data.email, id: data.id });
-      navigate(ROLE_DEST[data.role] || "/");
-    } catch (e) {
-      setError("Cannot connect to server. Please try again.");
+    const DEMO_USERS = {
+      "farmer@demo.com":      { name:"Ravi Kumar",   role:"FARMER",      id:1 },
+      "distributor@demo.com": { name:"Priya Sharma", role:"DISTRIBUTOR", id:2 },
+      "retailer@demo.com":    { name:"Amit Patel",   role:"RETAILER",    id:3 },
+      "consumer@demo.com":    { name:"Meera Nair",   role:"CONSUMER",    id:4 },
+    };
+    const demo = DEMO_USERS[email.trim().toLowerCase()];
+    if (demo && password === "demo1234") {
+      localStorage.setItem("fcx_token", "demo-token-" + demo.role.toLowerCase());
+      setUser({ name:demo.name, role:demo.role.toLowerCase(), email:email.trim().toLowerCase(), id:demo.id });
+      localStorage.setItem("role", demo.role.toLowerCase());
+      navigate(ROLE_DEST[demo.role.toUpperCase()]);
+      setLoading(false); return;
     }
+    const users = JSON.parse(localStorage.getItem("registered_users") || "[]");
+    const found = users.find(u => u.email.toLowerCase() === email.trim().toLowerCase() && u.password === password);
+    if (found) {
+      localStorage.setItem("fcx_token", "demo-token-" + found.role.toLowerCase());
+      localStorage.setItem("role", found.role.toLowerCase());
+      setUser({ name:found.name, role:found.role.toLowerCase(), email:found.email, id:found.id });
+      navigate(ROLE_DEST[found.role.toUpperCase()]);
+      setLoading(false); return;
+    }
+    setError("Invalid email or password.");
     setLoading(false);
   };
 
   return (
     <div style={{ minHeight:"100vh", display:"flex", background:"linear-gradient(135deg, var(--forest) 0%, var(--pine) 60%, var(--sage) 100%)" }}>
       <div style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"center", padding:"60px", color:"white" }} className="hide-mobile">
-        <h1 style={{ fontFamily:"Syne", fontSize:52, fontWeight:800, marginBottom:20, lineHeight:1.05 }}>FarmChainX</h1>
-        <p style={{ fontSize:18, opacity:0.75, maxWidth:380, lineHeight:1.8 }}>
-          A transparent agricultural supply chain platform connecting farmers, distributors, retailers and consumers.
-        </p>
+        <h1 style={{ fontFamily:"Syne", fontSize:42, fontWeight:800, marginBottom:16 }}>FarmChainX</h1>
+        <p style={{ fontSize:18, opacity:0.85, maxWidth:420, lineHeight:1.7 }}>Transparent farm-to-fork supply chain for India's agricultural ecosystem.</p>
       </div>
-      <div style={{ width:460, display:"flex", alignItems:"center", justifyContent:"center", padding:32, background:"rgba(255,255,255,0.07)", backdropFilter:"blur(10px)" }}>
-        <div style={{ background:"white", borderRadius:20, padding:40, width:"100%", maxWidth:400, boxShadow:"0 20px 60px rgba(0,0,0,0.25)" }}>
-          <div style={{ textAlign:"center", marginBottom:28 }}>
-            <h2 style={{ fontFamily:"Syne", fontSize:24, fontWeight:800, marginBottom:6 }}>Welcome Back</h2>
-            <p style={{ color:"var(--muted)", fontSize:14 }}>Sign in to your FarmChainX account</p>
+      <div style={{ width:480, display:"flex", alignItems:"center", justifyContent:"center", padding:32, background:"rgba(255,255,255,0.07)", backdropFilter:"blur(10px)" }}>
+        <div style={{ background:"white", borderRadius:20, padding:40, width:"100%", maxWidth:420, boxShadow:"0 20px 60px rgba(0,0,0,0.25)" }}>
+          <div style={{ textAlign:"center", marginBottom:24 }}>
+            <h2 style={{ fontFamily:"Syne", fontSize:22, fontWeight:800 }}>Sign In</h2>
           </div>
-          {error && <div style={{ background:"#fee2e2", color:"#991b1b", padding:"12px 16px", borderRadius:10, marginBottom:20, fontSize:13 }}>⚠️ {error}</div>}
-          <div className="form-group">
-            <label className="form-label">Email Address</label>
-            <input className="form-input" type="email" placeholder="Enter your email" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key === "Enter" && handleLogin()} />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Password</label>
-            <input className="form-input" type="password" placeholder="Enter your password" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === "Enter" && handleLogin()} />
-          </div>
-          <button className="btn btn-primary w-full btn-lg" style={{ marginTop:8, borderRadius:10 }} onClick={handleLogin} disabled={loading}>
-            {loading ? "Signing in..." : "Sign In"}
+          {error && <div style={{ background:"#fee2e2", color:"#991b1b", padding:"10px 14px", borderRadius:8, marginBottom:16, fontSize:13 }}>⚠️ {error}</div>}
+          <div className="form-group"><label className="form-label">Email</label><input className="form-input" type="email" placeholder="your@email.com" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key === "Enter" && handleLogin()} /></div>
+          <div className="form-group"><label className="form-label">Password</label><input className="form-input" type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === "Enter" && handleLogin()} /></div>
+          <button className="btn btn-primary w-full btn-lg" style={{ borderRadius:10, marginTop:8 }} onClick={handleLogin} disabled={loading}>
+            {loading ? "Signing in..." : "Sign In →"}
           </button>
-          <div style={{ marginTop:16, padding:12, background:"var(--bg)", borderRadius:8, fontSize:12, color:"var(--muted)" }}>
-            <div style={{ fontWeight:700, marginBottom:6 }}>Demo accounts:</div>
-            <div>🧑‍🌾 farmer@demo.com / demo1234</div>
-            <div>🚛 distributor@demo.com / demo1234</div>
-            <div>🏪 retailer@demo.com / demo1234</div>
-            <div>👤 consumer@demo.com / demo1234</div>
+          <div style={{ background:"var(--bg)", borderRadius:10, padding:14, marginTop:16, fontSize:12, color:"var(--muted)" }}>
+            <div style={{ fontWeight:700, marginBottom:6 }}>Demo accounts (password: demo1234)</div>
+            {["farmer@demo.com","distributor@demo.com","retailer@demo.com","consumer@demo.com"].map(e => (
+              <div key={e} style={{ cursor:"pointer", color:"var(--sage)", marginBottom:2 }} onClick={() => { setEmail(e); setPassword("demo1234"); }}>{e}</div>
+            ))}
           </div>
-          <div style={{ textAlign:"center", marginTop:16, fontSize:14, color:"var(--muted)" }}>
-            Don't have an account? <Link to="/register" style={{ color:"var(--sage)", fontWeight:700 }}>Register here</Link>
+          <div style={{ textAlign:"center", marginTop:14, fontSize:14, color:"var(--muted)" }}>
+            No account? <Link to="/register" style={{ color:"var(--sage)", fontWeight:700 }}>Register here</Link>
           </div>
         </div>
       </div>
     </div>
   );
 }
-
+/**
+ * RegisterPage component allows new users to create an account and select their role.
+ */
 function RegisterPage() {
   const { setUser } = useAuth();
   const { navigate } = useRouter();
@@ -428,37 +427,31 @@ function RegisterPage() {
   const [error, setError] = useState("");
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  const ROLE_DEST = { FARMER:"/farmer/dashboard", DISTRIBUTOR:"/distributor/dashboard", RETAILER:"/retailer/dashboard", CONSUMER:"/marketplace" };
-  const BASE_URL = "https://farmchainx-production-3250.up.railway.app";
+  const BASE_URL = "";
   const roles = [{ value:"FARMER", label:"🧑‍🌾 Farmer" }, { value:"DISTRIBUTOR", label:"🚛 Distributor" }, { value:"RETAILER", label:"🏪 Retailer" }, { value:"CONSUMER", label:"👤 Consumer" }];
 
   const handleRegister = async () => {
-    if (!form.name || !form.email || !form.password || !form.role) { setError("Please fill all fields"); return; }
-    if (form.password !== form.confirmPassword) { setError("Passwords do not match"); return; }
-    if (form.password.length < 6) { setError("Password must be at least 6 characters"); return; }
-    setLoading(true); setError("");
-    try {
-      const res = await fetch(`${BASE_URL}/api/auth/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: form.name.trim(), email: form.email.trim(), password: form.password, role: form.role }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        setError(json.message || "Registration failed");
-        setLoading(false); return;
-      }
-      const data = json.data;
-      localStorage.setItem("fcx_token", data.token);
-      localStorage.setItem("role", data.role.toLowerCase());
-      localStorage.setItem("farmerName", data.name);
-      setUser({ name: data.name, role: data.role.toLowerCase(), email: data.email, id: data.id });
-      navigate(ROLE_DEST[data.role] || "/");
-    } catch (e) {
-      setError("Cannot connect to server. Please try again.");
-    }
-    setLoading(false);
-  };
+  if (!form.name || !form.email || !form.password || !form.role) { setError("Please fill all fields"); return; }
+  if (form.password !== form.confirmPassword) { setError("Passwords do not match"); return; }
+  if (form.password.length < 6) { setError("Password must be at least 6 characters"); return; }
+
+  // Save to localStorage
+  const users = JSON.parse(localStorage.getItem("registered_users") || "[]");
+  const exists = users.find(u => u.email.toLowerCase() === form.email.trim().toLowerCase());
+  if (exists) { setError("Email already registered. Please login."); return; }
+
+  const newUser = { name: form.name.trim(), email: form.email.trim(), password: form.password, role: form.role, id: Date.now() };
+  users.push(newUser);
+  localStorage.setItem("registered_users", JSON.stringify(users));
+
+  localStorage.setItem("fcx_token", "demo-token-" + form.role.toLowerCase());
+  localStorage.setItem("role", form.role.toLowerCase());
+  if (form.role === "FARMER") {
+    localStorage.setItem("farmerName", form.name);
+  }
+  setUser({ name: form.name.trim(), role: form.role.toLowerCase(), email: form.email.trim(), id: newUser.id });
+  navigate(ROLE_DEST[form.role]);
+};
 
   return (
     <div style={{ minHeight:"100vh", display:"flex", background:"linear-gradient(135deg, var(--forest) 0%, var(--pine) 60%, var(--sage) 100%)" }}>
@@ -1741,110 +1734,153 @@ function RetailerInventory() {
 }
 
 function RetailerListings() {
+  const { allProducts, refreshProducts } = useProducts(); // ← use shared context
   const [editProduct, setEditProduct] = useState(null);
   const [form, setForm] = useState({});
   const [saved, setSaved] = useState(false);
-  const [products, setProducts] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("fcx_products")) || PRODUCTS; } catch { return PRODUCTS; }
-  });
+  const [products, setProducts] = useState(allProducts); // ← seed from context
+
+  // Keep in sync when allProducts changes (e.g. farmer adds a new product)
+  useEffect(() => {
+    setProducts(allProducts);
+  }, [allProducts]);
+
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
   const openEdit = (p) => {
     setEditProduct(p); setSaved(false);
-    setForm({ name: p.name || "", price: p.price || "", category: p.category || "Grains", description: p.description || "", stock: p.stock || "", origin: p.origin || "", certified: p.certified || false });
+    setForm({ name: p.name || "", price: p.price || "", category: p.category || "Grains", desc: p.desc || "", stock: p.stock || "", origin: p.origin || "", certified: p.certified || false });
   };
+
   const handleSave = () => {
-    const updated = products.map(p => p.id === editProduct.id ? { ...p, name: form.name, price: Number(form.price), category: form.category, description: form.description, stock: Number(form.stock), origin: form.origin, certified: form.certified } : p);
+    const updated = products.map(p =>
+      p.id === editProduct.id
+        ? { ...p, name: form.name, price: Number(form.price), category: form.category, desc: form.desc, stock: Number(form.stock), origin: form.origin, certified: form.certified }
+        : p
+    );
     setProducts(updated);
-    localStorage.setItem("fcx_products", JSON.stringify(updated));
+    // Persist edits back to the shared products store
+    const savedInStorage = storage.get("products", []);
+    const updatedStorage = savedInStorage.map(p =>
+      p.id === editProduct.id
+        ? { ...p, name: form.name, price: Number(form.price), category: form.category, desc: form.desc, stock: Number(form.stock), origin: form.origin, certified: form.certified }
+        : p
+    );
+    storage.set("products", updatedStorage);
+    refreshProducts(); // ← notify context so marketplace also reflects edits
     setSaved(true);
     setTimeout(() => setEditProduct(null), 1000);
   };
+
   const handleDelete = (id) => {
-    if (!window.confirm("Remove this product?")) return;
     const updated = products.filter(p => p.id !== id);
     setProducts(updated);
-    localStorage.setItem("fcx_products", JSON.stringify(updated));
+    // Remove from shared store too
+    const savedInStorage = storage.get("products", []);
+    storage.set("products", savedInStorage.filter(p => p.id !== id));
+    refreshProducts(); // ← keep marketplace in sync
   };
-  return (
-    <RetailLayout title="Product Listings">
-      <div className="page-header flex items-center justify-between">
-        <div><div className="page-title">Product Listings</div><div className="page-sub">{products.length} products</div></div>
+
+  // ... rest of the return JSX stays exactly the same
+  // ─── FIXED: RetailerListings — full corrected return ─────────────────────────
+return (
+  <RetailLayout title="Product Listings">
+    <div className="page-header flex items-center justify-between">
+      <div>
+        <div className="page-title">Product Listings</div>
+        <div className="page-sub">{products.length} products</div>
       </div>
-      {products.length === 0 ? (
-        <div className="empty-state"><div className="empty-icon">🏷️</div><div className="empty-title">No products listed</div></div>
-      ) : (
-        <div className="products-grid">
-          {products.map(p => (
-            <div key={p.id} className="card" style={{ overflow: "hidden" }}>
-              <div style={{ height: 140, background: "var(--primary-light)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", position: "relative" }}>
-                {p.image ? <img src={p.image} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 52 }}>{p.icon || "🌾"}</span>}
-                {p.certified && <div style={{ position: "absolute", top: 8, left: 8, background: "var(--primary-dark)", color: "#fff", fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 20 }}>🌿 Certified</div>}
-              </div>
-              <div style={{ padding: 14 }}>
-                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 3 }}>{p.name}</div>
-                <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>{p.category} · {p.origin || "India"}</div>
-                {p.description && (
-                  <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 6, lineHeight: 1.5, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
-                    {p.description}
-                  </div>
-                )}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                  <div style={{ fontWeight: 800, color: "var(--primary-dark)", fontSize: 16 }}>₹{p.price}<span style={{ fontSize: 11, fontWeight: 400, color: "var(--muted)" }}>/{p.unit}</span></div>
-                  <span style={{ fontSize: 11, color: "var(--muted)" }}>Stock: {p.stock} {p.unit}</span>
+    </div>
+    {products.length === 0 ? (
+      <div className="empty-state">
+        <div className="empty-icon">🏷️</div>
+        <div className="empty-title">No products listed</div>
+      </div>
+    ) : (
+      <div className="products-grid">
+        {products.map(p => (
+          <div key={p.id} className="card" style={{ overflow:"hidden" }}>
+            <div style={{ height:140, background:"var(--primary-light)", display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden", position:"relative" }}>
+              {p.image
+                ? <img src={p.image} alt={p.name} style={{ width:"100%", height:"100%", objectFit:"cover" }} />
+                : <span style={{ fontSize:52 }}>{p.icon || "🌾"}</span>}
+              {p.certified && (
+                <div style={{ position:"absolute", top:8, left:8, background:"var(--primary-dark)", color:"#fff", fontSize:10, fontWeight:700, padding:"3px 8px", borderRadius:20 }}>
+                  🌿 Certified
                 </div>
-                <div style={{ display: "flex", gap: 7 }}>
-                  <button className="btn btn-secondary btn-sm" style={{ flex: 1 }} onClick={() => openEdit(p)}>✏️ Edit</button>
-                  <button className="btn btn-danger btn-sm" onClick={() => handleDelete(p.id)}>🗑️</button>
+              )}
+            </div>
+            <div style={{ padding:14 }}>
+              <div style={{ fontWeight:700, fontSize:14, marginBottom:3 }}>{p.name}</div>
+              <div style={{ fontSize:11, color:"var(--muted)", marginBottom:4 }}>{p.category} · {p.origin || "India"}</div>
+              {p.desc && (
+                <div style={{ fontSize:12, color:"var(--muted)", marginBottom:6, lineHeight:1.5, overflow:"hidden", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" }}>
+                  {p.desc}
                 </div>
+              )}
+              <div style={{ fontSize:13, fontWeight:700, color:"var(--pine)", marginBottom:4 }}>
+                ₹{p.price}/{p.unit}
               </div>
-            </div>
-          ))}
-        </div>
-      )}
-      {editProduct && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={e => e.target === e.currentTarget && setEditProduct(null)}>
-          <div style={{ background: "#fff", borderRadius: 14, padding: 28, width: "100%", maxWidth: 520, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-              <div style={{ fontSize: 17, fontWeight: 800 }}>✏️ Edit Product</div>
-              <button onClick={() => setEditProduct(null)} style={{ width: 30, height: 30, borderRadius: 6, border: "none", background: "var(--bg)", cursor: "pointer", fontSize: 16 }}>✕</button>
-            </div>
-            {saved && <div className="alert alert-success">✅ Saved successfully!</div>}
-            {editProduct.image && (
-              <div style={{ marginBottom: 16, borderRadius: 10, overflow: "hidden", height: 120 }}>
-                <img src={editProduct.image} alt={editProduct.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              <span style={{ fontSize:11, color:"var(--muted)" }}>Stock: {p.stock} {p.unit}</span>
+              <div style={{ display:"flex", gap:7, marginTop:8 }}>
+                <button className="btn btn-secondary btn-sm" style={{ flex:1 }} onClick={() => openEdit(p)}>✏️ Edit</button>
+                <button className="btn btn-danger btn-sm" onClick={() => handleDelete(p.id)}>🗑️</button>
               </div>
-            )}
-            <div className="grid-2">
-              <div className="form-group"><label className="form-label">Product Name</label><input className="form-input" value={form.name} onChange={e => set("name", e.target.value)} /></div>
-              <div className="form-group"><label className="form-label">Category</label>
-                <select className="form-input form-select" value={form.category} onChange={e => set("category", e.target.value)}>
-                  {["Grains","Fruits","Vegetables","Spices","Dairy","Herbs"].map(c => <option key={c}>{c}</option>)}
-                </select>
-              </div>
-              <div className="form-group"><label className="form-label">Price (₹)</label><input className="form-input" type="number" value={form.price} onChange={e => set("price", e.target.value)} /></div>
-              <div className="form-group"><label className="form-label">Stock</label><input className="form-input" type="number" value={form.stock} onChange={e => set("stock", e.target.value)} /></div>
-            </div>
-            <div className="form-group"><label className="form-label">Origin / Location</label><input className="form-input" placeholder="e.g. Punjab" value={form.origin} onChange={e => set("origin", e.target.value)} /></div>
-            <div className="form-group">
-              <label className="form-label">Description</label>
-              <textarea className="form-input" placeholder="Describe the product — quality, taste, uses, certifications..." value={form.description} onChange={e => set("description", e.target.value)} style={{ minHeight: 110 }} />
-              <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>Visible to consumers on marketplace and product detail page.</div>
-            </div>
-            <div className="form-group">
-              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-                <input type="checkbox" checked={form.certified} onChange={e => set("certified", e.target.checked)} />
-                <span className="form-label" style={{ margin: 0 }}>🌿 FSSAI Organic Certified</span>
-              </label>
-            </div>
-            <div style={{ display: "flex", gap: 10 }}>
-              <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleSave}>Save Changes</button>
-              <button className="btn btn-secondary" onClick={() => setEditProduct(null)}>Cancel</button>
             </div>
           </div>
+        ))}
+      </div>
+    )}
+
+    {editProduct && (
+      <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}
+        onClick={e => e.target === e.currentTarget && setEditProduct(null)}>
+        <div style={{ background:"#fff", borderRadius:14, padding:28, width:"100%", maxWidth:520, maxHeight:"90vh", overflowY:"auto", boxShadow:"0 20px 60px rgba(0,0,0,0.2)" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20 }}>
+            <div style={{ fontSize:17, fontWeight:800 }}>✏️ Edit Product</div>
+            <button onClick={() => setEditProduct(null)} style={{ width:30, height:30, borderRadius:6, border:"none", background:"var(--bg)", cursor:"pointer", fontSize:16 }}>✕</button>
+          </div>
+          {saved && <div className="alert alert-success">✅ Saved successfully!</div>}
+          {editProduct.image && (
+            <div style={{ marginBottom:16, borderRadius:10, overflow:"hidden", height:120 }}>
+              <img src={editProduct.image} alt={editProduct.name} style={{ width:"100%", height:"100%", objectFit:"cover" }} />
+            </div>
+          )}
+          <div className="grid-2">
+            <div className="form-group"><label className="form-label">Product Name</label><input className="form-input" value={form.name} onChange={e => set("name", e.target.value)} /></div>
+            <div className="form-group">
+              <label className="form-label">Category</label>
+              <select className="form-input form-select" value={form.category} onChange={e => set("category", e.target.value)}>
+                {["Grains","Fruits","Vegetables","Spices","Dairy","Herbs"].map(c => <option key={c}>{c}</option>)}
+              </select>
+            </div>
+            <div className="form-group"><label className="form-label">Price (₹)</label><input className="form-input" type="number" value={form.price} onChange={e => set("price", e.target.value)} /></div>
+            <div className="form-group"><label className="form-label">Stock</label><input className="form-input" type="number" value={form.stock} onChange={e => set("stock", e.target.value)} /></div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Origin / Location</label>
+            <input className="form-input" placeholder="e.g. Punjab" value={form.origin} onChange={e => set("origin", e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Description</label>
+            <textarea className="form-input" placeholder="Describe the product..." value={form.desc} onChange={e => set("desc", e.target.value)} style={{ minHeight:110 }} />
+            <div style={{ fontSize:11, color:"var(--muted)", marginTop:4 }}>Visible to consumers on marketplace.</div>
+          </div>
+          <div className="form-group">
+            <label style={{ display:"flex", alignItems:"center", gap:8, cursor:"pointer", fontSize:14 }}>
+              <input type="checkbox" checked={form.certified} onChange={e => set("certified", e.target.checked)} />
+              🌿 FSSAI Organic Certified
+            </label>
+          </div>
+          <div style={{ display:"flex", gap:10 }}>
+            <button className="btn btn-primary" style={{ flex:1 }} onClick={handleSave}>Save Changes</button>
+            <button className="btn btn-secondary" onClick={() => setEditProduct(null)}>Cancel</button>
+          </div>
         </div>
-      )}
-    </RetailLayout>
-  );
+      </div>
+    )}
+  </RetailLayout>
+);
 }
 
 function RetailerOrders() {
@@ -2235,28 +2271,42 @@ export default function App() {
   const [cartItems, setCartItems] = useState(() => storage.get("fcx_cart", []));
   const [products, setProducts] = useState(() => storage.get("products", []));
 
+  // Helper: combine seed and user products
+  const allProducts = useMemo(() => {
+    const local = storage.get("products", []);
+    const seeds = SEED_PRODUCTS;
+    // Avoid duplicates by id
+    const ids = new Set(local.map(p => p.id));
+    const merged = [...local, ...seeds.filter(p => !ids.has(p.id))];
+    return merged;
+  }, [products]);
+
+  // Refresh products from storage
+  const refreshProducts = useCallback(() => {
+    setProducts(storage.get("products", []));
+  }, []);
+
   // Persist cart
   useEffect(() => { storage.set("fcx_cart", cartItems); }, [cartItems]);
 
-  // Restore session
+  // Restore session and user on mount
   useEffect(() => {
     const token = localStorage.getItem("fcx_token");
-    if (token && !user) {
-      fetch("https://farmchainx-production-3250.up.railway.app/api/auth/me", { headers:{ Authorization:`Bearer ${token}` } })
-        .then(r=>r.json()).then(j=>{ if(j.data) setUser({ name:j.data.name, role:j.data.role.toLowerCase(), email:j.data.email, id:j.data.id }); }).catch(()=>{});
+    const role = localStorage.getItem("role");
+    const email = localStorage.getItem("email");
+    const name = localStorage.getItem("farmerName") || "User";
+    if (token) {
+      setProducts(storage.get("products", []));
+      // Try to restore user if not already set
+      if (!user) {
+        setUser({
+          name,
+          role: role || "consumer",
+          email: email || "",
+        });
+      }
     }
   }, []);
-
-  const refreshProducts = useCallback(() => {
-    setProducts(storage.get("products",[]));
-  }, []);
-
-  const allProducts = useMemo(() => {
-    const local = storage.get("products",[]);
-    const localIds = new Set(local.map(p=>p.id));
-    const seeds = SEED_PRODUCTS.filter(p=>!localIds.has(p.id));
-    return [...local, ...seeds];
-  }, [products]);
 
   const addToCart = useCallback((product) => {
     setCartItems(items => {
@@ -2277,7 +2327,7 @@ export default function App() {
   const clearCart = useCallback(() => setCartItems([]), []);
 
   const authValue = useMemo(()=>({ user, setUser }),[user]);
-  const cartValue = useMemo(()=>({ cartItems, addToCart, removeFromCart, updateQty, clearCart }),[cartItems]);
+  const cartValue = useMemo(()=>({ cartItems, addToCart, removeFromCart, updateQty, clearCart }),[cartItems, addToCart, removeFromCart, updateQty, clearCart]);
   const productsValue = useMemo(()=>({ allProducts, refreshProducts }),[allProducts, refreshProducts]);
 
   return (

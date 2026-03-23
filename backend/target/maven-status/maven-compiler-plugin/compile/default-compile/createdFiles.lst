@@ -39,6 +39,7 @@ com\farmchainx\dto\LoginRequestDTO.class
 com\farmchainx\dto\UserDTO.class
 com\farmchainx\model\Batch$BatchStatus.class
 com\farmchainx\controller\OrderController.class
+com\farmchainx\config\GlobalCorsConfig.class
 com\farmchainx\model\Order.class
 com\farmchainx\model\User$Role.class
 com\farmchainx\security\UserDetailsImpl.class
